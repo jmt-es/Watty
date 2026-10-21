@@ -1,0 +1,20 @@
+name: Feature request
+description: Suggest an improvement to Watty
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Watty observes power and does not limit charging. For a charge limiter, see [BatFi](https://github.com/rurza/BatFi).
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like Watty to do?
+    validations:
+      required: true

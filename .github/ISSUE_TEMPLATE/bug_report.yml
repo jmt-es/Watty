@@ -1,0 +1,50 @@
+name: Bug report
+description: Something in Watty looks wrong or does not work
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. If this is a security problem, do not open an issue: see the [security policy](https://github.com/jmt-es/Watty/security/policy).
+  - type: input
+    id: version
+    attributes:
+      label: Watty version
+      description: Run `watty --version`, or choose About Watty in the panel menu.
+      placeholder: "1.3.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: How did you install it?
+      options:
+        - Homebrew
+        - From source (make install)
+        - Prebuilt zip from GitHub Releases
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: macOS version and Mac model
+      placeholder: "macOS 26.1, MacBook Pro 14-inch"
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened, and what did you expect?
+      description: Screenshots help. Check that they do not show anything private, such as the names of your apps.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+  - type: textarea
+    id: status
+    attributes:
+      label: Output of `watty status`
+      description: Paste it when the problem is a wrong or missing reading.
+      render: shell

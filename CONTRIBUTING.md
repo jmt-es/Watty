@@ -1,0 +1,132 @@
+# Contributing to Watty
+
+Thanks for taking the time to help. Watty is a small macOS app, and small, focused changes are the easiest to review.
+
+Open an issue before starting anything larger than a fix, so we can agree on the approach first. When you report a bug, include the Watty version (`watty --version`, or About Watty in the panel menu), your macOS version and your Mac model. To report a security problem, follow [SECURITY.md](SECURITY.md) instead of opening an issue.
+
+## Build and test
+
+You need macOS 13 or later and the Xcode Command Line Tools (Swift 5.9 or later). The unit tests use XCTest, which comes with Xcode.
+
+```sh
+git clone https://github.com/jmt-es/Watty.git
+cd Watty
+
+make build     # compile the release products
+make test      # run the unit tests
+make app       # assemble build/Watty.app, ad-hoc signed
+make lint      # shellcheck every script (brew install shellcheck)
+```
+
+Run the built app with `open build/Watty.app`. Notifications and launch at login only work from an app bundle like that one, so use it, rather than `swift run`, when you touch them. `make install` installs the app in `~/Applications`; see the [README](README.md#from-source) for its options.
+
+| Target | What it does |
+| --- | --- |
+| `make build` | Compiles the release products with SwiftPM. |
+| `make test` | Runs the unit tests. |
+| `make app` | Builds `build/Watty.app`, with the `watty-cli` command inside it, ad-hoc signed. |
+| `make install` | Builds from source and installs the app. Variables: `INSTALL_DIR`, `BIN_DIR`, `LAUNCH_AGENT=1`, `RUN_TESTS=1`, `OPEN_APP=0`. |
+| `make uninstall` | Removes the app, its LaunchAgent and logs. `UNINSTALL_ARGS=--purge` also removes settings and history. |
+| `make release` | Builds the universal zip in `dist/`. `RELEASE_ARGS="--tap ../homebrew-tap"` also updates the formula. |
+| `make clean` | Removes `.build`, `build` and `dist`. |
+| `make lint` | Runs `shellcheck` and a syntax check on every script. |
+
+`make help` prints the same list.
+
+## Project layout
+
+- `Sources/WattyCore`: telemetry readers, samplers, parsers, the history store and the energy mode action. No UI.
+- `Sources/Watty`: the SwiftUI app.
+- `Sources/WattyCLI` and `Sources/watty-cli`: the `watty` command. See [docs/cli.md](docs/cli.md).
+- `Tests/WattyCoreTests`, `Tests/WattyAppTests` and `Tests/WattyCLITests`: unit tests for each of them.
+- `Localization`: one `<language>.lproj/Localizable.strings` per language.
+- `Assets`: the source image of the app icon.
+- `scripts`: build, install, uninstall and release scripts, and the helpers of the Makefile.
+- `docs`: [how it works](docs/how-it-works.md), the CLI reference and the README images.
+- `.github`: the CI and release workflows and the issue and pull request templates.
+
+The version lives in `Sources/WattyCore/WattyVersion.swift`. The scripts, the app bundle and the CLI all read it from there.
+
+## Style
+
+- **Names, not comments.** Pick a name that says what the code does. Do not add narrative comments: no file headers, no comments that restate a line or list examples. A comment is for the reason behind something that is not obvious, and that should be rare. If code needs explaining, rename it, split it, or add a test whose name states the behavior.
+- Keep files small and cohesive, and extract a helper when a file grows too large.
+- Prefer immutable values and pure functions, so the logic can be tested without hardware.
+- Handle errors explicitly. Do not swallow them: show the user a clear message and log the detail.
+- Avoid magic numbers. Give intervals, limits and thresholds a named constant.
+- Watty has no third-party dependencies and makes no network requests. Do not add either without discussing it first.
+- Follow the style of the code around your change.
+
+Shell scripts follow the same rules, and also:
+
+- They run on the bash 3.2 that macOS ships, so no associative arrays, `mapfile` or `${var,,}`.
+- They start with `set -euo pipefail`, keep constants at the top, print errors to stderr and never hard-code a user's home directory.
+- `make lint` must pass.
+
+## Tests
+
+Add or update tests with your change. Parsers and calculations take plain input, so test them with fixtures that stand in for the real system output, never against the live machine. Run `make test` before you open a pull request.
+
+## Localization
+
+User-facing strings live in `Localization/<language>.lproj/Localizable.strings`. To add a language, create a `<language>.lproj` folder with a `Localizable.strings` file and translate the English strings. The build copies every folder into the app and lists the languages in its Info.plist, so there is nothing else to register.
+
+To check a language without changing your system settings, start the app with it, for example `build/Watty.app/Contents/MacOS/Watty -AppleLanguages "(es)"`.
+
+## Screenshots
+
+The images in `docs/images` (`panel-light.png`, `panel-dark.png`, `panel-desktop.png` and `settings.png`) are generated by the app itself, in demo mode, so they hold nothing from the Mac that made them and can be refreshed after a visual change. Build the app, then run its executable with a capture flag. There is deliberately no URL for this: a `watty://` URL only opens the panel, so a link or another app cannot make Watty write a file.
+
+```sh
+make app
+WATTY=build/Watty.app/Contents/MacOS/Watty
+
+$WATTY --demo --capture-panel docs/images/panel-light.png --appearance light -AppleLanguages "(en)" -AppleLocale en_US
+$WATTY --demo --capture-panel docs/images/panel-dark.png --appearance dark -AppleLanguages "(en)" -AppleLocale en_US
+$WATTY --demo --demo-scenario desktop --capture-panel docs/images/panel-desktop.png --appearance light -AppleLanguages "(en)" -AppleLocale en_US
+$WATTY --demo --capture-settings docs/images/settings.png --appearance light -AppleLanguages "(en)" -AppleLocale en_US
+```
+
+The `-AppleLanguages` and `-AppleLocale` arguments keep the images in English whatever the language of the Mac that captures them.
+
+| Flag | What it does |
+| --- | --- |
+| `--capture-panel PATH` | Renders the panel to a PNG at twice its size, without a window frame, and exits. |
+| `--capture-settings PATH` | Renders the Settings window, with its title bar, to a PNG and exits. |
+| `--appearance light` or `dark` | Forces the appearance for the capture. |
+| `--demo` | Renders deterministic sample data instead of the readings of your Mac: a seeded 24-hour battery history, CPU, memory and temperature charts, and a list of apps every Mac has. It also fixes the panel and notification settings for the capture. Needs a capture flag, and cannot be combined with `--history-file`. |
+| `--demo-scenario charging`, `battery` or `desktop` | Chooses the situation the sample data describes: charging (the default), running on battery, or a Mac without a battery. Needs `--demo`. |
+| `--history-file PATH` | Loads the battery history from a JSON file instead of the real one. Needs a capture flag, and cannot be combined with `--demo`. |
+
+`PATH` must end in `.png`, and its folder is created if needed. A capture waits up to 20 seconds for the first readings and exits with status 0 once the PNG is written. It exits with 1 and a message on stderr when it fails, and with 64 on a usage error.
+
+A capture run skips the single-instance check, shows no menu bar item, never writes the battery history and leaves your preferences as they were; in demo mode the fixed settings are never written either. Without `--demo` it shows the real data of your Mac, including the names of the apps you are running, so never publish such a capture.
+
+`--history-file` reads the format of `~/Library/Application Support/Watty/battery-history.json`: `{"version": 1, "samples": [{"date": "2026-10-21T08:00:00Z", "level": 80, "isCharging": false, "onAdapter": false}]}`. Samples older than 24 hours are dropped when the file is loaded, so generate the dates relative to the time of the capture.
+
+## Commits and pull requests
+
+- Write commit messages in the imperative, with a short subject: `Fix stale battery time after wake`.
+- Keep each pull request to one change, and say in the description what changed, why, and how you tested it (macOS version and Mac model).
+- Update the docs and the `[Unreleased]` section of [CHANGELOG.md](CHANGELOG.md) when behavior changes.
+- CI must pass: it builds, runs the tests, packages the app and lints the scripts.
+
+## Releasing
+
+Maintainers only. The formula lives in the [tap repository](https://github.com/jmt-es/homebrew-tap), checked out next to this one as `../homebrew-tap`.
+
+1. Update `WattyVersion.swift` (`current` and `build`). In [CHANGELOG.md](CHANGELOG.md), move the entries under `[Unreleased]` to a new `## [X.Y.Z] - date` heading and update the links at the bottom. The release notes are cut from that heading by `scripts/release-notes.sh`, and the release fails without it.
+2. Commit, then tag the commit `vX.Y.Z` and push the commit and the tag. The Release workflow runs `scripts/release.sh`, which builds the universal zip with its SHA-256 sum and publishes the GitHub Release. A version with a suffix, such as `1.4.0-beta.1`, is published as a prerelease.
+3. With the tag pushed, update the formula from the tag's source archive, then review, commit and push the tap:
+
+   ```sh
+   scripts/release.sh --tap ../homebrew-tap
+   cd ../homebrew-tap
+   git diff Formula/watty.rb    # only url and sha256 change
+   git commit -am "Update watty to X.Y.Z"
+   git push
+   ```
+
+4. Check what users get, from a clean state: `brew update`, then `brew upgrade watty` or `brew install jmt-es/tap/watty`, then `brew test watty`.
+
+`scripts/release.sh` refuses to run when the tag does not point at `HEAD` or the working tree is dirty, so run it from the tagged commit. It builds the universal zip again on the way; add `--host-arch-only` when you only need the formula update.
