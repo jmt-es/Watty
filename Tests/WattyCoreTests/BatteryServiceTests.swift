@@ -522,6 +522,41 @@ final class BatteryServiceTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(snapshot.amperageAmps), -2.0, accuracy: 0.0001)
     }
 
+    func testTheSnapshotCarriesThePowerAccumulationOfTheRegistry() async {
+        let rig = Rig()
+        rig.powerSource = .internalBattery(Self.onAdapter(charging: true))
+        let telemetry: [String: Any] = [
+            "AccumulatedBatteryPower": 2_653_160_571,
+            "BatteryPowerAccumulatorCount": 126_349,
+            "AccumulatedBatteryDischarge": UInt64(18_446_744_071_188_733_378),
+            "BatteryDischargeAccumulatorCount": 166_218
+        ]
+        rig.smartBattery = .properties(Self.registry(external: true, milliAmps: 1_000, telemetry: telemetry))
+
+        let snapshot = await rig.makeService().fetchSnapshot(depth: .essentials)
+
+        XCTAssertEqual(snapshot.powerAccumulation, PowerAccumulation(milliwattTicks: 132_342_333, ticks: 292_567))
+    }
+
+    func testWithoutAccumulatorsTheSnapshotHasNoAccumulation() async {
+        let rig = Rig()
+
+        let snapshot = await rig.makeService().fetchSnapshot(depth: .essentials)
+
+        XCTAssertNil(snapshot.powerAccumulation)
+    }
+
+    func testTheServiceNeverDecidesTheNetFlowItself() async {
+        let rig = Rig()
+        rig.powerSource = .internalBattery(Self.onAdapter(charging: true))
+        rig.smartBattery = .properties(Self.registry(external: true, milliAmps: -2_000))
+
+        let snapshot = await rig.makeService().fetchSnapshot(depth: .essentials)
+
+        XCTAssertEqual(snapshot.netFlow, .unknown)
+        XCTAssertEqual(snapshot.chargeState, .charging)
+    }
+
     func testTheStatusReportReadsTheSanitizedSnapshotRightAfterUnplugging() async {
         let rig = Rig()
         let telemetry: [String: Any] = ["SystemLoad": -21_600]

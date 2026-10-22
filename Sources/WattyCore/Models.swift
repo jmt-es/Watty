@@ -121,6 +121,7 @@ public struct BatterySnapshot: Equatable {
     public var voltageVolts: Double?
     public var amperageAmps: Double?
     public var batteryPowerWatts: Double?
+    public var powerAccumulation: PowerAccumulation?
     public var systemPowerWatts: Double?
     public var systemLoadWatts: Double?
     public var adapterRatedWatts: Int?
@@ -135,6 +136,7 @@ public struct BatterySnapshot: Equatable {
     public var readDuration: TimeInterval
     public var lastUpdated: Date
     public var warnings: [String]
+    public var netFlow: NetFlowEstimate = .unknown
 
     public var isEmpty: Bool {
         lastUpdated == Date.distantPast

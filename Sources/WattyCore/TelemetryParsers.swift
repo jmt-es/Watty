@@ -40,6 +40,7 @@ public struct IoregBatteryInfo: Equatable {
     public var voltageVolts: Double?
     public var amperageAmps: Double?
     public var batteryPowerWatts: Double?
+    public var powerAccumulation: PowerAccumulation?
     public var systemPowerWatts: Double?
     public var systemLoadWatts: Double?
     public var adapterRatedWatts: Int?
@@ -166,6 +167,10 @@ public enum TelemetryParsers {
             amperageMilliAmps: signedNumber(forKey: BatteryRegistryKey.instantAmperage, in: output)
                 ?? signedNumber(forKey: BatteryRegistryKey.amperage, in: output),
             telemetryBatteryPowerMilliWatts: signedNumber(forKey: BatteryRegistryKey.batteryPower, in: output),
+            accumulatedChargeMilliWatts: signedNumber(forKey: BatteryRegistryKey.accumulatedBatteryPower, in: output),
+            accumulatedChargeTicks: signedNumber(forKey: BatteryRegistryKey.batteryPowerAccumulatorCount, in: output),
+            accumulatedDischargeMilliWatts: signedNumber(forKey: BatteryRegistryKey.accumulatedBatteryDischarge, in: output),
+            accumulatedDischargeTicks: signedNumber(forKey: BatteryRegistryKey.batteryDischargeAccumulatorCount, in: output),
             systemPowerInMilliWatts: signedNumber(forKey: BatteryRegistryKey.systemPowerIn, in: output),
             systemLoadMilliWatts: signedNumber(forKey: BatteryRegistryKey.systemLoad, in: output),
             rawTemperature: signedNumber(forKey: BatteryRegistryKey.temperature, in: output),

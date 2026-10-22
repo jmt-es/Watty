@@ -132,6 +132,7 @@ public final class BatteryService: TelemetryProviding {
             voltageVolts: registry.voltageVolts,
             amperageAmps: PowerReadingSanitizer.batteryFlow(registry.amperageAmps, onExternalPower: externalConnected),
             batteryPowerWatts: PowerReadingSanitizer.batteryFlow(registry.batteryPowerWatts, onExternalPower: externalConnected),
+            powerAccumulation: registry.powerAccumulation,
             systemPowerWatts: registry.systemPowerWatts,
             systemLoadWatts: PowerReadingSanitizer.systemLoad(registry.systemLoadWatts),
             adapterRatedWatts: details?.adapterRatedWatts ?? registry.adapterRatedWatts,

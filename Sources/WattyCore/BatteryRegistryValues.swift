@@ -6,6 +6,10 @@ enum BatteryRegistryKey {
     static let instantAmperage = "InstantAmperage"
     static let amperage = "Amperage"
     static let batteryPower = "BatteryPower"
+    static let accumulatedBatteryPower = "AccumulatedBatteryPower"
+    static let batteryPowerAccumulatorCount = "BatteryPowerAccumulatorCount"
+    static let accumulatedBatteryDischarge = "AccumulatedBatteryDischarge"
+    static let batteryDischargeAccumulatorCount = "BatteryDischargeAccumulatorCount"
     static let systemPowerIn = "SystemPowerIn"
     static let systemLoad = "SystemLoad"
     static let powerTelemetryData = "PowerTelemetryData"
@@ -30,6 +34,10 @@ struct BatteryRegistryValues: Equatable {
     var voltageMilliVolts: Int64?
     var amperageMilliAmps: Int64?
     var telemetryBatteryPowerMilliWatts: Int64?
+    var accumulatedChargeMilliWatts: Int64?
+    var accumulatedChargeTicks: Int64?
+    var accumulatedDischargeMilliWatts: Int64?
+    var accumulatedDischargeTicks: Int64?
     var systemPowerInMilliWatts: Int64?
     var systemLoadMilliWatts: Int64?
     var rawTemperature: Int64?
@@ -81,6 +89,7 @@ extension IoregBatteryInfo {
             voltageVolts: voltage,
             amperageAmps: amperage,
             batteryPowerWatts: calculatedBatteryPower ?? telemetryBatteryPower,
+            powerAccumulation: Self.powerAccumulation(from: values),
             systemPowerWatts: values.systemPowerInMilliWatts.map { Double($0) / Self.milliUnitsPerUnit },
             systemLoadWatts: values.systemLoadMilliWatts.map { Double($0) / Self.milliUnitsPerUnit },
             adapterRatedWatts: values.adapterWatts.map(Int.init),
@@ -98,6 +107,17 @@ extension IoregBatteryInfo {
             timeToFullMinutes: Self.knownMinutes(values.averageMinutesToFull),
             timeToEmptyMinutes: Self.knownMinutes(values.averageMinutesToEmpty)
         )
+    }
+
+    private static func powerAccumulation(from values: BatteryRegistryValues) -> PowerAccumulation? {
+        guard let charge = values.accumulatedChargeMilliWatts, let chargeTicks = values.accumulatedChargeTicks,
+              let discharge = values.accumulatedDischargeMilliWatts, let dischargeTicks = values.accumulatedDischargeTicks else {
+            return nil
+        }
+        let (milliwattTicks, powerOverflowed) = charge.addingReportingOverflow(discharge)
+        let (ticks, ticksOverflowed) = chargeTicks.addingReportingOverflow(dischargeTicks)
+        guard !powerOverflowed, !ticksOverflowed, ticks >= 0 else { return nil }
+        return PowerAccumulation(milliwattTicks: milliwattTicks, ticks: ticks)
     }
 
     private static func plausibleBatteryPower(_ watts: Double) -> Double? {
@@ -127,6 +147,22 @@ extension TelemetryParsers {
                 ?? registry.integer(BatteryRegistryKey.amperage),
             telemetryBatteryPowerMilliWatts: registry.integer(
                 BatteryRegistryKey.batteryPower,
+                preferring: BatteryRegistryKey.powerTelemetryData
+            ),
+            accumulatedChargeMilliWatts: registry.integer(
+                BatteryRegistryKey.accumulatedBatteryPower,
+                preferring: BatteryRegistryKey.powerTelemetryData
+            ),
+            accumulatedChargeTicks: registry.integer(
+                BatteryRegistryKey.batteryPowerAccumulatorCount,
+                preferring: BatteryRegistryKey.powerTelemetryData
+            ),
+            accumulatedDischargeMilliWatts: registry.integer(
+                BatteryRegistryKey.accumulatedBatteryDischarge,
+                preferring: BatteryRegistryKey.powerTelemetryData
+            ),
+            accumulatedDischargeTicks: registry.integer(
+                BatteryRegistryKey.batteryDischargeAccumulatorCount,
                 preferring: BatteryRegistryKey.powerTelemetryData
             ),
             systemPowerInMilliWatts: registry.integer(
