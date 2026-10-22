@@ -35,7 +35,7 @@ Run the built app with `open build/Watty.app`. Notifications and launch at login
 
 ## Project layout
 
-- `Sources/WattyCore`: telemetry readers, samplers, parsers, the history store and the energy mode action. No UI.
+- `Sources/WattyCore`: telemetry readers, samplers, parsers, the net flow estimator, the history store and the energy mode action. No UI.
 - `Sources/Watty`: the SwiftUI app.
 - `Sources/WattyCLI` and `Sources/watty-cli`: the `watty` command. See [docs/cli.md](docs/cli.md).
 - `Tests/WattyCoreTests`, `Tests/WattyAppTests` and `Tests/WattyCLITests`: unit tests for each of them.
@@ -95,7 +95,7 @@ The `-AppleLanguages` and `-AppleLocale` arguments keep the images in English wh
 | `--capture-settings PATH` | Renders the Settings window, with its title bar, to a PNG and exits. |
 | `--appearance light` or `dark` | Forces the appearance for the capture. |
 | `--demo` | Renders deterministic sample data instead of the readings of your Mac: a seeded 24-hour battery history, CPU, memory and temperature charts, and a list of apps every Mac has. It also fixes the panel and notification settings for the capture. Needs a capture flag, and cannot be combined with `--history-file`. |
-| `--demo-scenario charging`, `battery` or `desktop` | Chooses the situation the sample data describes: charging (the default), running on battery, or a Mac without a battery. Needs `--demo`. |
+| `--demo-scenario charging`, `battery`, `draining` or `desktop` | Chooses the situation the sample data describes: charging (the default), running on battery, plugged in to a 20 W charger that cannot keep up with the load, or a Mac without a battery. Needs `--demo`. |
 | `--history-file PATH` | Loads the battery history from a JSON file instead of the real one. Needs a capture flag, and cannot be combined with `--demo`. |
 
 `PATH` must end in `.png`, and its folder is created if needed. A capture waits up to 20 seconds for the first readings and exits with status 0 once the PNG is written. It exits with 1 and a message on stderr when it fails, and with 64 on a usage error.

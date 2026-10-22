@@ -51,10 +51,10 @@ watty show                   # bring up the Watty panel
 
 ### `watty status [--json]`
 
-Prints one snapshot: battery level, charge state and time remaining, power source and charger
-rating, system input, system load and battery power, voltage, amperage, battery temperature, cycle
-count, maximum capacity and condition, power mode and Low Power Mode, SoC temperature, CPU and
-memory.
+Prints one snapshot: battery level, charge state (and whether the battery is really charging or
+draining), time remaining, power source and charger rating, system input, system load and battery
+power, voltage, amperage, battery temperature, cycle count, maximum capacity and condition, power
+mode and Low Power Mode, SoC temperature, CPU and memory.
 
 ```console
 $ watty status
@@ -81,6 +81,27 @@ takes under a second on an Apple silicon MacBook; do not poll it faster than eve
 
 Battery power is signed: positive while charging, negative while discharging. The same applies to
 the amperage.
+
+The `Battery` line says `Plugged in, draining` when the Mac is plugged in but the battery is losing
+charge, which happens when the charger delivers less than the Mac uses. macOS keeps reporting
+`Charging` in that situation, and an estimate of hours to full; `watty` does not repeat it:
+
+```console
+$ watty status
+Battery        18% · Plugged in, draining · the 20 W adapter can't keep up
+Power source   Power adapter · 20 W rated
+System input   19.7 W
+System load    38.0 W
+Battery power  -18.3 W · draining
+...
+```
+
+`status` reads the battery once, so it judges from that single reading: what the battery is doing
+at that instant. The battery controller refreshes its readings every 5 to 60 seconds, so the reading
+can be up to a minute old, and under a bursty load one reading can mislead (a spike of positive power
+in the middle of a drain, for example). For the judgement Watty makes over the last minutes, as the
+panel does, use [`watch`](#watty-watch---interval-seconds). A value you can rely on in a script is
+[`net_flow`](#battery) from several readings, not one.
 
 On a Mac without a battery the battery rows are replaced by a single line, and the power mode, SoC
 temperature, CPU and memory are still shown:
@@ -145,23 +166,42 @@ flushes after each, so it is safe to follow with `tail -f`, `awk` or `read`:
 
 ```console
 $ watty watch --interval 5 | cat
-2026-10-21T18:04:21+02:00 level=82 state=charging battery_w=+45.4 system_w=20.3
-2026-10-21T18:04:26+02:00 level=82 state=charging battery_w=+45.1 system_w=20.6
+2026-10-21T18:04:21+02:00 level=82 state=charging battery_w=+45.4 system_w=20.3 net_flow=charging
+2026-10-21T18:04:26+02:00 level=82 state=charging battery_w=+45.1 system_w=20.6 net_flow=charging
 ```
 
 | Field       | Meaning                                                                              |
 | ----------- | ------------------------------------------------------------------------------------ |
 | time        | ISO 8601 local time with its UTC offset.                                             |
 | `level`     | Battery level in percent.                                                            |
-| `state`     | `charging`, `charged`, `plugged_in_not_charging`, `on_battery`, or `no_battery`.     |
-| `battery_w` | Battery power in watts, signed: positive while charging, negative while discharging. |
+| `state`     | `charging`, `charged`, `plugged_in_not_charging`, `on_battery`, or `no_battery`. What macOS reports. |
+| `battery_w` | Battery power in watts, signed: positive while charging, negative while discharging. The reading of that instant. |
 | `system_w`  | Power used by the Mac in watts (system load).                                        |
+| `net_flow`  | Where the battery is really heading, judged over the last minutes: `charging`, `draining` or `holding`. See [`battery.net_flow`](#battery). |
 
-Unknown values are printed as `—` so every line keeps the same five columns. Warnings about
-partial reads go to stderr, once each. When the reader closes the pipe (`watty watch | head -3`),
-`watch` stops with exit status 1 and a short message on stderr.
+`watch` keeps the readings of the samples it has taken, so unlike `status` it judges `net_flow` over
+time. With a charger that cannot keep up, `state` still says `charging` and the instantaneous
+`battery_w` jumps around, while `net_flow` holds the verdict:
 
-The battery controller only updates its power readings every few seconds, so consecutive samples
+```console
+$ watty watch --interval 15 | cat
+2026-10-21T21:29:45+02:00 level=19 state=charging battery_w=-17.9 system_w=37.7 net_flow=—
+2026-10-21T21:30:00+02:00 level=19 state=charging battery_w=-17.9 system_w=37.7 net_flow=—
+2026-10-21T21:30:15+02:00 level=19 state=charging battery_w=+4.8 system_w=15.1 net_flow=draining
+2026-10-21T21:30:30+02:00 level=18 state=charging battery_w=-19.4 system_w=39.0 net_flow=draining
+```
+
+On a terminal the `Battery` row of the live screen says `Plugged in, draining` the same way `status`
+does, and while it does its `Battery power` row shows the average of the last minutes.
+
+`net_flow` is `—` for the first 30 seconds or so, until there are enough readings, and again for 90
+seconds after the charger is plugged in or the Mac wakes up, while the battery controller catches
+up. Unknown values are printed as `—` so every line keeps the same six columns. The sixth is
+appended at the end, so a script that reads the first five by position is not affected. Warnings
+about partial reads go to stderr, once each. When the reader closes the pipe (`watty watch | head
+-3`), `watch` stops with exit status 1 and a short message on stderr.
+
+The battery controller only updates its power readings every 5 to 60 seconds, so consecutive samples
 can repeat the same power values; a shorter interval mainly makes a change show up sooner.
 
 | Option               | Default | Description                              |
@@ -182,7 +222,7 @@ If Watty.app cannot be found the command exits with an error that explains how t
 watty help                  # overview of the commands
 watty help top              # same as: watty top --help
 watty status -h             # every command accepts --help and -h
-watty --version             # watty 1.3.0 (-v works too)
+watty --version             # watty 1.3.1 (-v works too)
 ```
 
 ## Output conventions
@@ -193,7 +233,8 @@ watty --version             # watty 1.3.0 (-v works too)
   1024 MB), as the Watty panel does.
 - A value that cannot be read prints as `—` in text and is `null` in JSON. It is never replaced by
   a zero.
-- Text output is meant to fit in 80 columns.
+- Text output is meant to fit in 80 columns. The one-line-per-sample output of `watch` is the
+  exception: it carries six fields and runs a little longer.
 - Bold and color are used only when stdout is a terminal and the `NO_COLOR` environment variable
   is unset or empty. JSON output is never styled.
 - Partial read failures (for example `system_profiler` timing out) do not stop the command: the
@@ -241,6 +282,7 @@ percentages to 0.1.
     "cycle_count": 257,
     "level_percent": 87,
     "maximum_capacity_percent": 89,
+    "net_flow": "draining",
     "power_watts": -57.9,
     "state": "on_battery",
     "temperature_celsius": 37.4,
@@ -270,7 +312,7 @@ percentages to 0.1.
   },
   "timestamp": "2026-10-21T16:12:57Z",
   "warnings": [],
-  "watty_version": "1.3.0"
+  "watty_version": "1.3.1"
 }
 ```
 
@@ -295,16 +337,39 @@ space before each colon and puts an empty array on three lines.
 | Key                        | Type    | Unit    | Description |
 | -------------------------- | ------- | ------- | ----------- |
 | `level_percent`            | integer | percent | Charge level, 0 to 100. |
-| `state`                    | string  |         | `charging`, `charged`, `plugged_in_not_charging` or `on_battery`. |
-| `time_to_full_minutes`     | integer | minutes | Estimated time to a full charge. Only while `charging`; `null` while macOS is still estimating. |
+| `state`                    | string  |         | `charging`, `charged`, `plugged_in_not_charging` or `on_battery`. What macOS reports. |
+| `net_flow`                 | string  |         | Where the battery is really heading: `charging`, `draining` or `holding`. `null` when unknown and on Macs without a battery. See below. |
+| `time_to_full_minutes`     | integer | minutes | Estimated time to a full charge. Only while `charging`; `null` while macOS is still estimating, and `null` while `net_flow` is `draining`. |
 | `time_to_empty_minutes`    | integer | minutes | Estimated time left. Only while `on_battery`; `null` while macOS is still estimating. |
-| `power_watts`              | number  | W       | Power flowing into the battery. Positive while charging, negative while discharging. |
+| `power_watts`              | number  | W       | Power flowing into the battery at the moment of the reading. Positive while charging, negative while discharging. |
 | `voltage_volts`            | number  | V       | Battery voltage. |
 | `amperage_amps`            | number  | A       | Battery current, signed like `power_watts`. |
 | `temperature_celsius`      | number  | °C      | Battery temperature. |
 | `cycle_count`              | integer |         | Charge cycles. |
 | `maximum_capacity_percent` | integer | percent | Maximum capacity relative to the design capacity. |
 | `condition`                | string  |         | Battery condition as macOS reports it (`Normal`, `Service Recommended`, ...). |
+
+`state` is what macOS reports, and `net_flow` is what the battery does. They agree most of the time.
+They differ when the charger cannot keep up with the Mac: macOS keeps saying the battery is charging
+while the level falls.
+
+| `state`                   | `net_flow`  | Situation |
+| ------------------------- | ----------- | --------- |
+| `charging`                | `charging`  | The battery gains charge. |
+| `charging`                | `draining`  | Plugged in, but the Mac uses more than the charger delivers: the battery loses charge. |
+| `charging`                | `holding`   | Plugged in and balanced: the battery neither gains nor loses charge. |
+| `plugged_in_not_charging` | `holding`   | Plugged in and not charging, for example at the limit of optimized charging. |
+| `plugged_in_not_charging` | `draining`  | Plugged in, macOS is not charging and the Mac still uses more than the charger delivers. |
+| `charged`                 | `holding`   | Full. |
+| `charged`                 | `draining`  | Full, but the Mac uses more than the charger delivers. |
+| `on_battery`              | `draining`  | Unplugged: the battery can only discharge. |
+
+`net_flow` is the average battery power over the last 2 and a half minutes, backed by the trend of the
+level over the last 8 minutes (the [how it works](how-it-works.md#is-the-battery-really-charging) page
+has the rules): `draining` at −2 W or lower, `charging` at +0.5 W or higher while macOS says it is
+charging, `holding` otherwise, and `null` when there is not enough data. In `status` that average is
+the single reading of the moment, so it can mislead under a bursty load; in `watch` it is the
+average over the samples taken so far.
 
 #### `power`
 
@@ -343,6 +408,7 @@ memory are still reported:
     "cycle_count": null,
     "level_percent": null,
     "maximum_capacity_percent": null,
+    "net_flow": null,
     "power_watts": null,
     "state": null,
     "temperature_celsius": null,
@@ -372,7 +438,7 @@ memory are still reported:
   },
   "timestamp": "2026-10-21T16:04:04Z",
   "warnings": [],
-  "watty_version": "1.3.0"
+  "watty_version": "1.3.1"
 }
 ```
 
@@ -388,7 +454,7 @@ memory are still reported:
   "interval_seconds": 1,
   "schema_version": 1,
   "timestamp": "2026-10-21T16:14:51Z",
-  "watty_version": "1.3.0"
+  "watty_version": "1.3.1"
 }
 ```
 
@@ -453,6 +519,20 @@ set -g status-interval 15
 set -g status-right '#(watty status --json | jq -r "\"\(.battery.level_percent)%% \(.battery.power_watts) W\"")'
 ```
 
+### Notice a charger that cannot keep up
+
+`watch` judges over time, so it is the right feed for this. It prints the line when the battery is
+losing charge although the Mac is plugged in:
+
+```sh
+watty watch --interval 15 |
+  awk '/state=(charging|plugged_in_not_charging)/ && /net_flow=draining/ { print "the charger cannot keep up"; fflush() }'
+```
+
+For a one-off check, `watty status --json | jq -e '.battery.net_flow == "draining" and .battery.state != "on_battery"'`
+exits with status 0 only in that situation. It judges from one reading, so run it a few times before
+trusting a single answer.
+
 ### Run something when the battery is low
 
 ```sh
@@ -493,6 +573,10 @@ narrower menu bar display, such as the icon alone.
 **Some values are `—` or `null`.** The Mac does not provide that reading (for example no battery,
 or no charger connected) or it could not be read this time. Check the `warnings` array in the JSON
 output, or the `watty: warning:` lines on stderr.
+
+**`net_flow` is `null` or `—`.** There is no battery, or `watch` has not taken enough readings yet
+(about 30 seconds), or the charger was plugged in or the Mac woke up less than 90 seconds ago.
+`status` shows it from its first reading as long as the battery power is known.
 
 **Colors or cursor control look wrong.** Set `NO_COLOR=1` to turn off bold and color. With
 `TERM=dumb`, `watch` prints plain lines instead of redrawing.

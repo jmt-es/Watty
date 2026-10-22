@@ -13,8 +13,8 @@ Watty is a macOS menu bar app that shows where your Mac's power goes: battery an
 
 ## Features
 
-- **Battery and charger**: charge level, charging state and time to full or empty, as macOS reports them.
-- **History**: a battery chart for the last 1, 6 or 24 hours that survives restarts, with charging periods shaded.
+- **Battery and charger**: charge level, charging state and time to full or empty, as macOS reports them. When the charger cannot keep up and the battery loses charge while plugged in, Watty says `Plugged in, draining` instead of repeating `Charging`.
+- **History**: a battery chart for the last 1, 6 or 24 hours that survives restarts, with charging periods shaded and, in orange, the periods plugged in where the level fell.
 - **Power flow**: what the adapter delivers, what the Mac consumes and what goes into or out of the battery, in watts.
 - **Activity**: CPU and memory charts for the last 10 minutes, plus the chip temperature on Apple Silicon.
 - **Energy by app**: the busiest apps by CPU share, with their memory footprint. Helper processes are grouped under their app.
