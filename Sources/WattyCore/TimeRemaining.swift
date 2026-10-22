@@ -7,6 +7,7 @@ public enum TimeRemaining: Equatable {
     case fullyCharged
     case runningFromAdapter
     case adapterCannotKeepUp(ratedWatts: Int?)
+    case usingBatteryOnAdapter
     case untilEmpty(minutes: Int)
     case calculatingUntilEmpty
     case waitingForFirstReading
@@ -21,6 +22,7 @@ public enum TimeRemaining: Equatable {
         case .adapterCannotKeepUp(let ratedWatts):
             guard let ratedWatts else { return "The adapter can't keep up" }
             return "The \(ratedWatts) W adapter can't keep up"
+        case .usingBatteryOnAdapter: return "Using the battery while plugged in"
         case .untilEmpty(let minutes): return "\(BatterySnapshot.clockText(minutes: minutes)) left"
         case .calculatingUntilEmpty: return "Calculating time left"
         case .waitingForFirstReading: return "Waiting for first reading"
@@ -39,6 +41,7 @@ extension BatterySnapshot {
         case .pluggedInNotCharging:
             return .runningFromAdapter
         case .pluggedInDraining:
+            guard reportedChargeState == .charging else { return .usingBatteryOnAdapter }
             return .adapterCannotKeepUp(ratedWatts: adapterRatedWatts.flatMap { $0 > 0 ? $0 : nil })
         case .onBattery:
             guard let minutes = timeToEmptyMinutes else { return .calculatingUntilEmpty }

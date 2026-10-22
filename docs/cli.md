@@ -96,6 +96,9 @@ Battery power  -18.3 W · draining
 ...
 ```
 
+When macOS itself reports that it is not charging (a charge limiter discharging on purpose, for
+example), the line ends with `using the battery while plugged in` instead of blaming the adapter.
+
 `status` reads the battery once, so it judges from that single reading: what the battery is doing
 at that instant. The battery controller refreshes its readings every 5 to 60 seconds, so the reading
 can be up to a minute old, and under a bursty load one reading can mislead (a spike of positive power

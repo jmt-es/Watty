@@ -128,7 +128,7 @@ Plugging in or unplugging, and a gap of more than 2 minutes between readings (th
 Only `draining` while plugged in changes what you see:
 
 - the header and the overview say `Plugged in, draining`, in orange, with a warning icon in place of the bolt on the header and on the ring;
-- the line under the level says `The 20 W adapter can't keep up` (with the rated power when known) instead of the time to full that macOS estimates;
+- the line under the level says `The 20 W adapter can't keep up` (with the rated power when known) instead of the time to full that macOS estimates; when macOS itself reports that it is not charging, as with a charge limiter that discharges on purpose, the line says `Using the battery while plugged in` instead, because the adapter is not to blame;
 - the menu bar icon changes and VoiceOver says `Battery 18%, plugged in, draining`;
 - the power flow shows the averaged battery power and `draining`;
 - the charge limit and the full battery reminders do not treat the battery as charging;

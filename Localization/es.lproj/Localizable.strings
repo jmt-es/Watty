@@ -196,6 +196,7 @@
 "unplugged" = "desconectado";
 "Updated %@" = "Actualizado %@";
 "user %@ · sys %@" = "usuario %@ · sistema %@";
+"Using the battery while plugged in" = "Usando la batería aunque está conectado";
 "Voltage" = "Voltaje";
 "Waiting for first reading" = "Esperando la primera lectura";
 "Watty is managed by Homebrew." = "Watty se gestiona con Homebrew.";

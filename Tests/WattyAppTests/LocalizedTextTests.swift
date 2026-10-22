@@ -37,13 +37,14 @@ final class LocalizedTextTests: XCTestCase {
         XCTAssertEqual(TimeRemaining.runningFromAdapter.localizedText, "Running from adapter")
         XCTAssertEqual(TimeRemaining.adapterCannotKeepUp(ratedWatts: 20).localizedText, "The 20 W adapter can't keep up")
         XCTAssertEqual(TimeRemaining.adapterCannotKeepUp(ratedWatts: nil).localizedText, "The adapter can't keep up")
+        XCTAssertEqual(TimeRemaining.usingBatteryOnAdapter.localizedText, "Using the battery while plugged in")
         XCTAssertEqual(TimeRemaining.waitingForFirstReading.localizedText, "Waiting for first reading")
     }
 
     func testTimeRemainingTextsFollowTheCoreEnglishText() {
         let cases: [TimeRemaining] = [
             .untilFull(minutes: 75), .finishingCharge, .calculatingUntilFull, .fullyCharged,
-            .runningFromAdapter, .adapterCannotKeepUp(ratedWatts: 20), .adapterCannotKeepUp(ratedWatts: nil),
+            .runningFromAdapter, .adapterCannotKeepUp(ratedWatts: 20), .adapterCannotKeepUp(ratedWatts: nil), .usingBatteryOnAdapter,
             .untilEmpty(minutes: 192), .calculatingUntilEmpty, .waitingForFirstReading
         ]
         for remaining in cases {

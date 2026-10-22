@@ -17,6 +17,8 @@ extension TimeRemaining {
         case .adapterCannotKeepUp(let ratedWatts):
             guard let ratedWatts else { return String(localized: "The adapter can't keep up") }
             return String(localized: "The \(ratedWatts) W adapter can't keep up")
+        case .usingBatteryOnAdapter:
+            return String(localized: "Using the battery while plugged in")
         case .untilEmpty(let minutes):
             return String(localized: "\(BatterySnapshot.clockText(minutes: minutes)) left")
         case .calculatingUntilEmpty:

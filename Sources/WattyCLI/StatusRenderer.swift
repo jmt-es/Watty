@@ -68,7 +68,9 @@ enum StatusRenderer {
         var parts = [levelText(report, style: style)]
         if isDrainingOnAdapter(report) {
             parts.append(style.yellow("Plugged in, draining"))
-            parts.append(adapterCannotKeepUpText(report.power.adapterRatedWatts))
+            parts.append(report.battery.state == .charging
+                ? adapterCannotKeepUpText(report.power.adapterRatedWatts)
+                : "using the battery while plugged in")
             return parts.joined(separator: TextFormat.separator)
         }
         if let state = battery.state {

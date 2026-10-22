@@ -56,6 +56,16 @@ final class TimeRemainingTests: XCTestCase {
         XCTAssertEqual(draining.timeRemainingText, "The 20 W adapter can't keep up")
     }
 
+    func testDrainingWhileMacOSIsNotChargingSaysTheBatteryIsInUse() {
+        var draining = snapshot(adapter: true, level: 72)
+        draining.adapterRatedWatts = 96
+        draining.netFlow = NetFlowEstimate(flow: .draining, averageBatteryWatts: -9)
+
+        XCTAssertEqual(draining.chargeState, .pluggedInDraining)
+        XCTAssertEqual(draining.timeRemaining, .usingBatteryOnAdapter)
+        XCTAssertEqual(draining.timeRemainingText, "Using the battery while plugged in")
+    }
+
     func testDrainingOnTheAdapterWithoutARatingUsesAGenericSentence() {
         for rated in [nil, 0, -1] as [Int?] {
             var draining = snapshot(charging: true, adapter: true, toFull: 579)

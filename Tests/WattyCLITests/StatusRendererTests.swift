@@ -60,6 +60,14 @@ final class StatusRendererTests: XCTestCase {
         XCTAssertEqual(lines[1], "Power source   Power adapter · 20 W rated")
     }
 
+    func testDrainingWhileMacOSIsNotChargingDoesNotBlameTheAdapter() {
+        let snapshot = Fixtures.drainingSnapshot { $0.isCharging = false }
+
+        let lines = plainLines(Fixtures.report(snapshot))
+
+        XCTAssertEqual(lines[0], "Battery        18% · Plugged in, draining · using the battery while plugged in")
+    }
+
     func testPluggedInAndDrainingWithoutARatingUsesAGenericSentence() {
         let lines = plainLines(Fixtures.report(Fixtures.drainingSnapshot(ratedWatts: nil)))
 
