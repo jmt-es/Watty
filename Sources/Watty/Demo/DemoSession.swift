@@ -8,6 +8,7 @@ enum DemoSession {
             service: DemoTelemetry(scenario: scenario),
             historyStore: DemoBatteryHistory.makeStore(for: scenario, endingAt: startedAt),
             seededStatsHistory: DemoStats.history(for: scenario, endingAt: startedAt),
+            seededNetFlowReadings: DemoBatteryHistory.netFlowReadings(for: scenario, endingAt: startedAt),
             observesPowerEvents: false
         )
     }

@@ -45,6 +45,7 @@ struct MenuBarContent: Equatable {
         switch snapshot.chargeState {
         case .charging: return "battery.100.bolt"
         case .charged, .pluggedInNotCharging: return "battery.100"
+        case .pluggedInDraining: return ChargeSymbol.draining
         case .unknown: return "battery.0"
         case .onBattery:
             if snapshot.level <= 10 { return "battery.0" }
@@ -65,7 +66,7 @@ struct MenuBarContent: Equatable {
             return snapshot.timeToEmptyMinutes.map(BatterySnapshot.clockText(minutes:)) ?? pendingClock
         case .charging:
             return snapshot.timeToFullMinutes.map(BatterySnapshot.clockText(minutes:)) ?? pendingClock
-        case .charged, .pluggedInNotCharging, .unknown:
+        case .charged, .pluggedInNotCharging, .pluggedInDraining, .unknown:
             return nil
         }
     }
@@ -90,6 +91,7 @@ struct MenuBarContent: Equatable {
         case .charging: return String(localized: "Battery \(percent), charging")
         case .charged: return String(localized: "Battery \(percent), fully charged")
         case .pluggedInNotCharging: return String(localized: "Battery \(percent), plugged in, not charging")
+        case .pluggedInDraining: return String(localized: "Battery \(percent), plugged in, draining")
         case .onBattery: return String(localized: "Battery \(percent), on battery")
         case .unknown: return String(localized: "Battery, reading")
         }

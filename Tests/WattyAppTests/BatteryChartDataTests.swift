@@ -18,12 +18,12 @@ final class BatteryChartDataTests: XCTestCase {
         let segments = BatteryChartSegment.segments(from: [sample(0, 80), sample(1, 79), sample(2, 78)])
         XCTAssertEqual(segments.count, 1)
         XCTAssertEqual(segments[0].samples.count, 3)
-        XCTAssertFalse(segments[0].isCharging)
+        XCTAssertEqual(segments[0].kind, .standard)
     }
 
     func testChargingChangeSplitsWithSharedBoundarySample() {
         let segments = BatteryChartSegment.segments(from: [sample(0, 50), sample(1, 49), sample(2, 50, charging: true), sample(3, 52, charging: true), sample(4, 51)])
-        XCTAssertEqual(segments.map(\.isCharging), [false, true, false])
+        XCTAssertEqual(segments.map(\.kind), [.standard, .charging, .standard])
         XCTAssertEqual(segments[0].samples.map(\.level), [50, 49])
         XCTAssertEqual(segments[1].samples.map(\.level), [49, 50, 52])
         XCTAssertEqual(segments[2].samples.map(\.level), [52, 51])
@@ -38,6 +38,66 @@ final class BatteryChartDataTests: XCTestCase {
 
     func testEmptyHistoryHasNoSegments() {
         XCTAssertTrue(BatteryChartSegment.segments(from: []).isEmpty)
+    }
+
+    private func drainPeriod(from startMinute: Double, to endMinute: Double) -> DateInterval {
+        DateInterval(start: origin.addingTimeInterval(startMinute * 60), end: origin.addingTimeInterval(endMinute * 60))
+    }
+
+    func testADrainPeriodRecolorsTheChargingFlaggedLineInsideIt() {
+        let samples = (0..<30).map { sample(Double($0), 80 - $0, charging: true, adapter: true) }
+
+        let segments = BatteryChartSegment.segments(from: samples, drainPeriods: [drainPeriod(from: 5, to: 20)])
+
+        XCTAssertEqual(segments.map(\.kind), [.charging, .draining, .charging])
+        XCTAssertEqual(segments[1].samples.first?.date, samples[4].date)
+        XCTAssertEqual(segments[1].samples.last?.date, samples[20].date)
+    }
+
+    func testADrainPeriodAlsoRecolorsPluggedInTimeThatMacOSCalledNotCharging() {
+        let samples = (0..<20).map { sample(Double($0), 60 - $0, charging: false, adapter: true) }
+
+        let segments = BatteryChartSegment.segments(from: samples, drainPeriods: [drainPeriod(from: 0, to: 19)])
+
+        XCTAssertEqual(segments.map(\.kind), [.draining])
+    }
+
+    func testADrainPeriodNeverRecolorsTimeOnBattery() {
+        let samples = (0..<20).map { sample(Double($0), 60 - $0, charging: false, adapter: false) }
+
+        let segments = BatteryChartSegment.segments(from: samples, drainPeriods: [drainPeriod(from: 0, to: 19)])
+
+        XCTAssertEqual(segments.map(\.kind), [.standard])
+    }
+
+    func testWithoutDrainPeriodsTheSegmentsAreTheChargingOnes() {
+        let samples = (0..<10).map { sample(Double($0), 60 + $0, charging: true, adapter: true) }
+
+        XCTAssertEqual(BatteryChartSegment.segments(from: samples).map(\.kind), [.charging])
+    }
+
+    func testTheLegendListsOnlyTheKindsThatAreShownAndChargingFirst() {
+        let charging = (0..<10).map { sample(Double($0), 40 + $0, charging: true, adapter: true) }
+        let draining = (10..<20).map { sample(Double($0), 70 - $0, charging: true, adapter: true) }
+        let onBattery = (20..<30).map { sample(Double($0), 50 - $0, charging: false, adapter: false) }
+        let period = [drainPeriod(from: 10, to: 19)]
+
+        func kinds(_ samples: [BatteryHistorySample]) -> [BatteryChartSegment.Kind] {
+            BatteryChartSegment.legendKinds(in: BatteryChartSegment.segments(from: samples, drainPeriods: period))
+        }
+
+        XCTAssertEqual(kinds(onBattery), [])
+        XCTAssertEqual(kinds(charging), [.charging])
+        XCTAssertEqual(kinds(draining), [.draining])
+        XCTAssertEqual(kinds(charging + draining + onBattery), [.charging, .draining])
+    }
+
+    func testAChargingFlagDoesNotKeepTheChargingLegendWhenEveryChargingSampleIsDraining() {
+        let samples = (0..<20).map { sample(Double($0), 60 - $0, charging: true, adapter: true) }
+
+        let segments = BatteryChartSegment.segments(from: samples, drainPeriods: [drainPeriod(from: 0, to: 19)])
+
+        XCTAssertEqual(BatteryChartSegment.legendKinds(in: segments), [.draining])
     }
 
     func testVisibleSamplesFilterTheWindow() {
@@ -60,7 +120,7 @@ final class BatteryChartDataTests: XCTestCase {
         XCTAssertTrue(reduced.contains { $0.date == samples[599].date })
         XCTAssertEqual(reduced.last?.date, samples.last?.date)
         let segments = BatteryChartSegment.segments(from: reduced)
-        XCTAssertEqual(segments.map(\.isCharging), [false, true, false])
+        XCTAssertEqual(segments.map(\.kind), [.standard, .charging, .standard])
     }
 
     func testDownsamplingLeavesShortHistoriesAlone() {

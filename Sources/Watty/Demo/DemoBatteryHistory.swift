@@ -6,6 +6,7 @@ enum DemoBatteryHistory {
         case discharging
         case charging
         case pluggedIn
+        case draining
     }
 
     private struct Segment {
@@ -21,6 +22,7 @@ enum DemoBatteryHistory {
     }
 
     private static let secondsPerMinute = 60.0
+    private static let seededReadingMinutes = 6
 
     static let coveredMinutes = Int(BatteryHistory.retention / secondsPerMinute) - 1
 
@@ -49,6 +51,15 @@ enum DemoBatteryHistory {
                 Segment(phase: .pluggedIn, startMinutesAgo: 1230, startLevel: 100, endMinutesAgo: 280, endLevel: 100),
                 Segment(phase: .discharging, startMinutesAgo: 280, startLevel: 100, endMinutesAgo: 0, endLevel: Double(DemoSnapshot.onBatteryLevel))
             ]
+        case .draining:
+            return [
+                Segment(phase: .discharging, startMinutesAgo: 1439, startLevel: 66, endMinutesAgo: 1330, endLevel: 38),
+                Segment(phase: .charging, startMinutesAgo: 1330, startLevel: 38, endMinutesAgo: 1285, endLevel: 80),
+                Segment(phase: .charging, startMinutesAgo: 1285, startLevel: 80, endMinutesAgo: 1240, endLevel: 100),
+                Segment(phase: .pluggedIn, startMinutesAgo: 1240, startLevel: 100, endMinutesAgo: 540, endLevel: 100),
+                Segment(phase: .discharging, startMinutesAgo: 540, startLevel: 100, endMinutesAgo: 65, endLevel: 51),
+                Segment(phase: .draining, startMinutesAgo: 65, startLevel: 51, endMinutesAgo: 0, endLevel: Double(DemoSnapshot.drainingLevel))
+            ]
         case .desktop:
             return []
         }
@@ -65,10 +76,23 @@ enum DemoBatteryHistory {
                 BatteryHistorySample(
                     date: anchor.addingTimeInterval(-Double(minutesAgo) * secondsPerMinute),
                     level: Int(level(of: segment, atMinutesAgo: minutesAgo).rounded()),
-                    isCharging: segment.phase == .charging,
+                    isCharging: segment.phase == .charging || segment.phase == .draining,
                     onAdapter: segment.phase != .discharging
                 )
             }
+        }
+    }
+
+    static func netFlowReadings(for scenario: DemoScenario, endingAt date: Date) -> [NetFlowReading] {
+        let batteryWatts = DemoSnapshot.make(for: scenario, at: date).batteryPowerWatts
+        return samples(for: scenario, endingAt: date).suffix(seededReadingMinutes).map { sample in
+            NetFlowReading(
+                date: sample.date,
+                batteryWatts: batteryWatts,
+                level: sample.level,
+                onAdapter: sample.onAdapter,
+                reportsCharging: sample.isCharging
+            )
         }
     }
 
@@ -91,7 +115,7 @@ enum DemoBatteryHistory {
         let swing: Double
         switch segment.phase {
         case .pluggedIn: return progress
-        case .discharging: swing = Usage.dischargeSwing
+        case .discharging, .draining: swing = Usage.dischargeSwing
         case .charging: swing = Usage.chargeSwing
         }
         let bursts = max(1, (Double(segment.durationMinutes) / Usage.minutesPerBurst).rounded())

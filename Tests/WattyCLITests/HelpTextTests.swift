@@ -38,6 +38,15 @@ final class HelpTextTests: XCTestCase {
         XCTAssertTrue(watch.contains("0.5 to 3600 (default 2)"))
     }
 
+    func testWatchHelpDescribesEveryFieldOfThePipedLine() {
+        let watch = HelpText.text(for: .watch, version: "9.9.9")
+
+        for field in ["level=", "state=", "battery_w=", "system_w=", "net_flow="] {
+            XCTAssertTrue(watch.contains(field), field)
+        }
+        XCTAssertTrue(watch.contains("charging, draining or holding"))
+    }
+
     func testEveryFlagInAUsageLineIsAcceptedByTheParser() {
         let sampleValues = ["--limit": "3", "--interval": "1"]
 

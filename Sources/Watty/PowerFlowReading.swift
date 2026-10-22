@@ -5,6 +5,7 @@ struct PowerFlowReading: Equatable {
     enum BatteryDirection: Equatable {
         case charging
         case discharging
+        case draining
         case idle
     }
 
@@ -24,7 +25,8 @@ struct PowerFlowReading: Equatable {
 
     init(snapshot: BatterySnapshot) {
         let onAdapter = snapshot.powerSource == .adapter
-        let batteryWatts = snapshot.batteryPowerWatts
+        let isDrainingOnAdapter = snapshot.isDrainingOnAdapter
+        let batteryWatts = isDrainingOnAdapter ? snapshot.netFlow.averageBatteryWatts : snapshot.batteryPowerWatts
 
         self.onAdapter = onAdapter
         adapterInputWatts = snapshot.systemPowerWatts
@@ -33,7 +35,9 @@ struct PowerFlowReading: Equatable {
         systemLoadWatts = Self.systemLoad(snapshot: snapshot, onAdapter: onAdapter, batteryWatts: batteryWatts)
 
         let watts = batteryWatts ?? 0
-        if watts > Self.flowThresholdWatts {
+        if isDrainingOnAdapter {
+            batteryDirection = .draining
+        } else if watts > Self.flowThresholdWatts {
             batteryDirection = .charging
         } else if watts < -Self.flowThresholdWatts {
             batteryDirection = .discharging
@@ -46,7 +50,7 @@ struct PowerFlowReading: Equatable {
         if let load = snapshot.systemLoadWatts { return load }
         let battery = batteryWatts ?? 0
         if onAdapter, let input = snapshot.systemPowerWatts {
-            return max(0, input - max(battery, 0))
+            return max(0, input - battery)
         }
         return battery < 0 ? -battery : nil
     }

@@ -44,7 +44,7 @@ enum StatusRenderer {
             KeyValueRow(key: "Power source", value: sourceText(power, style: style)),
             KeyValueRow(key: "System input", value: known(TextFormat.watts(power.systemInputWatts), style: style)),
             KeyValueRow(key: "System load", value: known(TextFormat.watts(power.systemLoadWatts), style: style)),
-            KeyValueRow(key: "Battery power", value: batteryPowerText(battery, style: style)),
+            KeyValueRow(key: "Battery power", value: batteryPowerText(report, style: style)),
             KeyValueRow(key: "Voltage", value: known(TextFormat.volts(battery.voltageVolts), style: style)),
             KeyValueRow(key: "Amperage", value: known(TextFormat.signedAmps(battery.amperageAmps), style: style)),
             KeyValueRow(key: "Battery temp", value: known(TextFormat.celsius(battery.temperatureCelsius), style: style)),
@@ -65,7 +65,12 @@ enum StatusRenderer {
     private static func batterySummary(_ report: StatusReport, style: TextStyle) -> String {
         guard report.hasBattery else { return "none detected" }
         let battery = report.battery
-        var parts = [levelText(battery, style: style)]
+        var parts = [levelText(report, style: style)]
+        if isDrainingOnAdapter(report) {
+            parts.append(style.yellow("Plugged in, draining"))
+            parts.append(adapterCannotKeepUpText(report.power.adapterRatedWatts))
+            return parts.joined(separator: TextFormat.separator)
+        }
         if let state = battery.state {
             parts.append(stateText(state, style: style))
         }
@@ -75,19 +80,34 @@ enum StatusRenderer {
         return parts.joined(separator: TextFormat.separator)
     }
 
-    private static func levelText(_ battery: StatusReport.BatteryStatus, style: TextStyle) -> String {
+    private static func isDrainingOnAdapter(_ report: StatusReport) -> Bool {
+        report.power.source == .adapter && report.battery.netFlow == .draining
+    }
+
+    private static func adapterCannotKeepUpText(_ ratedWatts: Int?) -> String {
+        guard let ratedWatts, ratedWatts > 0 else { return "the adapter can't keep up" }
+        return "the \(ratedWatts) W adapter can't keep up"
+    }
+
+    private static func levelText(_ report: StatusReport, style: TextStyle) -> String {
+        let battery = report.battery
         guard let level = battery.levelPercent else { return style.dim(TextFormat.missing) }
         let text = "\(level)%"
+        if isDrainingOnAdapter(report) { return lowLevelStyled(text, level: level, style: style) }
         switch battery.state {
         case .onBattery?:
-            if level <= criticalBatteryLevel { return style.red(text) }
-            if level <= lowBatteryLevel { return style.yellow(text) }
-            return text
+            return lowLevelStyled(text, level: level, style: style)
         case .charging?, .charged?:
             return style.green(text)
         default:
             return text
         }
+    }
+
+    private static func lowLevelStyled(_ text: String, level: Int, style: TextStyle) -> String {
+        if level <= criticalBatteryLevel { return style.red(text) }
+        if level <= lowBatteryLevel { return style.yellow(text) }
+        return text
     }
 
     private static func stateText(_ state: ReportChargeState, style: TextStyle) -> String {
@@ -122,8 +142,14 @@ enum StatusRenderer {
         }
     }
 
-    private static func batteryPowerText(_ battery: StatusReport.BatteryStatus, style: TextStyle) -> String {
-        guard let watts = battery.powerWatts else { return style.dim(TextFormat.missing) }
+    private static func batteryPowerText(_ report: StatusReport, style: TextStyle) -> String {
+        if isDrainingOnAdapter(report) {
+            guard let average = report.battery.averagePowerWatts else {
+                return TextFormat.signedWatts(report.battery.powerWatts)
+            }
+            return TextFormat.signedWatts(average) + TextFormat.separator + style.yellow("draining")
+        }
+        guard let watts = report.battery.powerWatts else { return style.dim(TextFormat.missing) }
         let value = TextFormat.signedWatts(watts)
         guard let flow = TextFormat.batteryFlow(watts) else { return value }
         let colored = watts < 0 ? style.yellow(flow) : (watts > 0 ? style.green(flow) : flow)

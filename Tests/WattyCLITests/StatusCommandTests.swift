@@ -45,6 +45,53 @@ final class StatusCommandTests: XCTestCase {
         XCTAssertTrue(rig.console.output.hasSuffix("}\n"))
     }
 
+    func testStatusJudgesTheNetFlowFromTheSingleReading() async throws {
+        let draining = TestRig(telemetry: StubTelemetry(snapshot: Fixtures.snapshot {
+            $0.level = 18
+            $0.batteryPowerWatts = -18.3
+            $0.adapterRatedWatts = 20
+        }))
+        let charging = TestRig()
+        let onBattery = TestRig(telemetry: StubTelemetry(snapshot: Fixtures.onBatterySnapshot()))
+
+        _ = await draining.run("status", "--json")
+        _ = await charging.run("status", "--json")
+        _ = await onBattery.run("status", "--json")
+
+        func battery(_ rig: TestRig) throws -> [String: Any] {
+            let object = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(rig.console.output.utf8)) as? [String: Any])
+            return try XCTUnwrap(object["battery"] as? [String: Any])
+        }
+        XCTAssertEqual(try battery(draining)["net_flow"] as? String, "draining")
+        XCTAssertEqual(try battery(draining)["state"] as? String, "charging")
+        XCTAssertTrue(try battery(draining)["time_to_full_minutes"] is NSNull)
+        XCTAssertEqual(try battery(charging)["net_flow"] as? String, "charging")
+        XCTAssertEqual(try battery(charging)["time_to_full_minutes"] as? Int, 98)
+        XCTAssertEqual(try battery(onBattery)["net_flow"] as? String, "draining")
+        XCTAssertEqual(try battery(onBattery)["state"] as? String, "on_battery")
+    }
+
+    func testStatusPrintsPluggedInDrainingFromTheSingleReading() async {
+        let rig = TestRig(telemetry: StubTelemetry(snapshot: Fixtures.snapshot {
+            $0.level = 18
+            $0.batteryPowerWatts = -18.3
+            $0.adapterRatedWatts = 20
+        }))
+
+        _ = await rig.run("status")
+
+        XCTAssertEqual(rig.console.outputLines.first, "Battery        18% · Plugged in, draining · the 20 W adapter can't keep up")
+    }
+
+    func testStatusWithoutABatteryHasNoNetFlow() async throws {
+        let rig = TestRig(telemetry: StubTelemetry(snapshot: Fixtures.noBatterySnapshot()))
+
+        _ = await rig.run("status", "--json")
+
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(rig.console.output.utf8)) as? [String: Any])
+        XCTAssertTrue((object["battery"] as? [String: Any])?["net_flow"] is NSNull)
+    }
+
     func testStatusJSONWithoutABatteryHasNullBatteryFields() async throws {
         let rig = TestRig(telemetry: StubTelemetry(snapshot: Fixtures.noBatterySnapshot()))
 

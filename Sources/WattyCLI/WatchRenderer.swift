@@ -35,7 +35,8 @@ enum WatchRenderer {
             "level=\(level)",
             "state=\(state)",
             "battery_w=\(TextFormat.signedNumber(report.battery.powerWatts))",
-            "system_w=\(TextFormat.number(report.power.systemLoadWatts))"
+            "system_w=\(TextFormat.number(report.power.systemLoadWatts))",
+            "net_flow=\(report.battery.netFlow?.rawValue ?? TextFormat.missing)"
         ]
         return fields.joined(separator: " ")
     }

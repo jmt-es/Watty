@@ -11,9 +11,11 @@ enum WatchCommand {
 
     private static func runLines(_ options: WatchOptions, context: CommandContext) async -> Int32 {
         var reportedWarnings = Set<String>()
+        var estimator = NetFlowEstimator()
         while true {
             let startedAt = context.now()
-            let snapshot = await context.telemetry.snapshot()
+            var snapshot = await context.telemetry.snapshot()
+            snapshot.netFlow = estimator.record(snapshot)
             let report = StatusReport(snapshot: snapshot, stats: emptyStats(at: startedAt), generatedAt: startedAt)
 
             context.reportWarnings(report.warnings.filter { reportedWarnings.insert($0).inserted })
@@ -37,9 +39,11 @@ enum WatchCommand {
         _ = await context.telemetry.systemStats()
         guard await context.pause(CLIDefaults.cpuSamplingWindow) else { return ExitCode.success }
 
+        var estimator = NetFlowEstimator()
         while true {
             let startedAt = context.now()
-            let snapshot = await context.telemetry.snapshot()
+            var snapshot = await context.telemetry.snapshot()
+            snapshot.netFlow = estimator.record(snapshot)
             let stats = await context.telemetry.systemStats()
             let report = StatusReport(snapshot: snapshot, stats: stats, generatedAt: context.now())
 

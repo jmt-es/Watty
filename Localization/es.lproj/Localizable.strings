@@ -40,6 +40,7 @@
 "Battery %@, charging" = "Batería %@, cargando";
 "Battery %@, fully charged" = "Batería %@, carga completa";
 "Battery %@, on battery" = "Batería %@, sin conectar";
+"Battery %@, plugged in, draining" = "Batería %@, conectada, descargando";
 "Battery %@, plugged in, not charging" = "Batería %@, conectada, sin cargar";
 "Battery draw in watts on battery, adapter input while plugged in." = "Consumo en vatios con batería, o potencia del adaptador al estar conectado.";
 "Battery fully charged" = "Batería totalmente cargada";
@@ -86,6 +87,10 @@
 "Desktop Mac · no battery" = "Mac de sobremesa · sin batería";
 "discharging" = "descargando";
 "Discharging at %@" = "Descargando a %@";
+"draining" = "descargando";
+"Draining at %@" = "Descargando a %@";
+"Draining from" = "Descargando desde";
+"Draining until" = "Descargando hasta";
 "Energy" = "Energía";
 "Energy Mode" = "Modo de energía";
 "Expand health details" = "Mostrar detalles de la salud de la batería";
@@ -144,6 +149,7 @@
 "Open Login Items…" = "Abrir ítems de inicio…";
 "Open Notification Settings…" = "Abrir Ajustes de notificaciones…";
 "Percentage" = "Porcentaje";
+"Plugged in, draining" = "Conectado, descargando";
 "Plugged in, not charging" = "Conectado, sin cargar";
 "pmset battery read failed" = "No se pudo leer la batería (pmset)";
 "pmset settings read failed" = "No se pudieron leer los ajustes de energía (pmset)";
@@ -175,6 +181,8 @@
 "System" = "Sistema";
 "System kept %@" = "El sistema mantuvo el modo %@";
 "system_profiler detail read failed" = "No se pudieron leer los detalles de la batería (system_profiler)";
+"The %lld W adapter can't keep up" = "El adaptador de %lld\U00A0W no da abasto";
+"The adapter can't keep up" = "El adaptador no da abasto";
 "The app's path changes with every upgrade, so start it at login with Homebrew instead:" = "La ruta de la app cambia con cada actualización; para abrirla al iniciar sesión, usa Homebrew:";
 "The battery is at %@. Plug in your charger." = "La batería está al %@. Conecta el cargador.";
 "The battery is full. You can unplug your charger." = "La batería está llena. Ya puedes desconectar el cargador.";

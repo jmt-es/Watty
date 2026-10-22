@@ -45,43 +45,56 @@ enum BatteryChartRange: Int, CaseIterable, Identifiable {
 }
 
 struct BatteryChartSegment: Identifiable, Equatable {
+    enum Kind: Hashable {
+        case charging
+        case draining
+        case standard
+    }
+
     static let gapThreshold: TimeInterval = 10 * 60
 
     let id: Int
-    let isCharging: Bool
+    let kind: Kind
     let samples: [BatteryHistorySample]
 
-    static func segments(from samples: [BatteryHistorySample]) -> [BatteryChartSegment] {
+    static func segments(from samples: [BatteryHistorySample], drainPeriods: [DateInterval] = []) -> [BatteryChartSegment] {
         var segments: [BatteryChartSegment] = []
         var current: [BatteryHistorySample] = []
-        var currentCharging = false
+        var currentKind = Kind.standard
 
         func flush() {
             guard !current.isEmpty else { return }
-            segments.append(BatteryChartSegment(id: segments.count, isCharging: currentCharging, samples: current))
+            segments.append(BatteryChartSegment(id: segments.count, kind: currentKind, samples: current))
         }
 
         for sample in samples {
-            guard let last = current.last else {
+            guard let last = current.last, sample.date.timeIntervalSince(last.date) <= gapThreshold else {
+                flush()
                 current = [sample]
-                currentCharging = sample.isCharging
+                currentKind = kind(of: sample, drainPeriods: drainPeriods)
                 continue
             }
 
-            if sample.date.timeIntervalSince(last.date) > gapThreshold {
-                flush()
-                current = [sample]
-                currentCharging = sample.isCharging
-            } else if sample.isCharging != currentCharging {
+            let sampleKind = kind(of: sample, drainPeriods: drainPeriods)
+            if sampleKind == currentKind {
+                current.append(sample)
+            } else {
                 flush()
                 current = [last, sample]
-                currentCharging = sample.isCharging
-            } else {
-                current.append(sample)
+                currentKind = sampleKind
             }
         }
         flush()
         return segments
+    }
+
+    static func legendKinds(in segments: [BatteryChartSegment]) -> [Kind] {
+        [Kind.charging, Kind.draining].filter { kind in segments.contains { $0.kind == kind } }
+    }
+
+    private static func kind(of sample: BatteryHistorySample, drainPeriods: [DateInterval]) -> Kind {
+        if sample.onAdapter, drainPeriods.contains(where: { $0.contains(sample.date) }) { return .draining }
+        return sample.isCharging ? .charging : .standard
     }
 }
 

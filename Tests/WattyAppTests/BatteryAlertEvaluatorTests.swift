@@ -50,6 +50,21 @@ final class BatteryAlertEvaluatorTests: XCTestCase {
         XCTAssertEqual(kinds(evaluator.evaluate(level: 10, chargeState: .charging, configuration: allOn)), [])
     }
 
+    func testWhilePluggedInAndDrainingNoReminderTreatsTheBatteryAsChargingOrFull() {
+        var evaluator = BatteryAlertEvaluator()
+        _ = evaluator.evaluate(level: 70, chargeState: .charging, configuration: allOn)
+
+        XCTAssertEqual(kinds(evaluator.evaluate(level: 85, chargeState: .pluggedInDraining, configuration: allOn)), [])
+        XCTAssertEqual(kinds(evaluator.evaluate(level: 100, chargeState: .pluggedInDraining, configuration: allOn)), [])
+    }
+
+    func testLowBatteryStillAppliesOnlyOnBatteryPowerEvenWhilePluggedInAndDraining() {
+        var evaluator = BatteryAlertEvaluator()
+        _ = evaluator.evaluate(level: 30, chargeState: .pluggedInDraining, configuration: allOn)
+
+        XCTAssertEqual(kinds(evaluator.evaluate(level: 6, chargeState: .pluggedInDraining, configuration: allOn)), [])
+    }
+
     func testChargeLimitFiresWhenChargingReachesTheLevelAndNotAgainWhileCharging() {
         var evaluator = BatteryAlertEvaluator()
         _ = evaluator.evaluate(level: 70, chargeState: .charging, configuration: allOn)

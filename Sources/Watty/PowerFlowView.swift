@@ -32,10 +32,10 @@ struct PowerFlowView: View {
                 )
 
                 if model.hasBattery {
-                    FlowArrow(direction: arrowDirection(reading), tint: reading.batteryDirection == .discharging ? .orange : .green)
+                    FlowArrow(direction: arrowDirection(reading), tint: arrowTint(reading))
 
                     PowerNode(
-                        icon: model.snapshot.isCharging ? "battery.100.bolt" : "battery.100",
+                        icon: model.snapshot.chargeState == .charging ? "battery.100.bolt" : "battery.100",
                         title: "Battery",
                         value: ValueFormat.signedWatts(reading.batteryWatts),
                         detail: batteryDetail(reading),
@@ -72,8 +72,15 @@ struct PowerFlowView: View {
     private func arrowDirection(_ reading: PowerFlowReading) -> FlowArrow.Direction {
         switch reading.batteryDirection {
         case .charging: return .right
-        case .discharging: return .left
+        case .discharging, .draining: return .left
         case .idle: return .none
+        }
+    }
+
+    private func arrowTint(_ reading: PowerFlowReading) -> Color {
+        switch reading.batteryDirection {
+        case .discharging, .draining: return .orange
+        case .charging, .idle: return .green
         }
     }
 
@@ -81,6 +88,7 @@ struct PowerFlowView: View {
         switch reading.batteryDirection {
         case .charging: return String(localized: "charging")
         case .discharging: return String(localized: "discharging")
+        case .draining: return String(localized: "draining")
         case .idle: return String(localized: "idle")
         }
     }
@@ -90,6 +98,9 @@ struct PowerFlowView: View {
         switch reading.batteryDirection {
         case .charging: return String(localized: "Charging at \(watts)")
         case .discharging: return String(localized: "Discharging at \(watts)")
+        case .draining:
+            guard reading.batteryWatts != nil else { return String(localized: "draining") }
+            return String(localized: "Draining at \(watts)")
         case .idle: return String(localized: "idle")
         }
     }
@@ -98,7 +109,7 @@ struct PowerFlowView: View {
         switch model.snapshot.chargeState {
         case .charging, .charged: return .green
         case .pluggedInNotCharging: return .secondary
-        case .onBattery: return .orange
+        case .pluggedInDraining, .onBattery: return .orange
         case .unknown: return .secondary
         }
     }

@@ -44,6 +44,47 @@ final class DemoSnapshotTests: XCTestCase {
         XCTAssertEqual(snapshot.maximumCapacityPercent, 94)
     }
 
+    func testDrainingScenarioIsAWeakChargerLosingToTheLoad() {
+        let snapshot = snapshot(.draining)
+
+        XCTAssertTrue(snapshot.hasBattery)
+        XCTAssertEqual(snapshot.level, DemoSnapshot.drainingLevel)
+        XCTAssertEqual(snapshot.powerSource, .adapter)
+        XCTAssertTrue(snapshot.isCharging)
+        XCTAssertEqual(snapshot.reportedChargeState, .charging)
+        XCTAssertEqual(snapshot.timeToFullMinutes, DemoSnapshot.drainingMinutesToFull)
+        XCTAssertEqual(snapshot.adapterRatedWatts, 20)
+        XCTAssertEqual(snapshot.batteryPowerWatts, -18.3)
+        XCTAssertEqual(snapshot.systemPowerWatts, 19.7)
+        XCTAssertEqual(snapshot.systemLoadWatts, 38)
+    }
+
+    func testDrainingFlowsAddUp() throws {
+        let snapshot = snapshot(.draining)
+        let input = try XCTUnwrap(snapshot.systemPowerWatts)
+        let load = try XCTUnwrap(snapshot.systemLoadWatts)
+        let battery = try XCTUnwrap(snapshot.batteryPowerWatts)
+        let volts = try XCTUnwrap(snapshot.voltageVolts)
+        let amps = try XCTUnwrap(snapshot.amperageAmps)
+
+        XCTAssertLessThan(battery, 0)
+        XCTAssertEqual(volts * amps, battery, accuracy: 0.05)
+        XCTAssertEqual(input, load + battery, accuracy: 0.05)
+        XCTAssertLessThanOrEqual(input, Double(DemoSnapshot.drainingAdapterRatedWatts))
+    }
+
+    func testThePanelReadsTheDrainingScenarioAsADrainOfTheAveragedPower() {
+        var draining = snapshot(.draining)
+        draining.netFlow = NetFlowEstimate(flow: .draining, averageBatteryWatts: -18.3)
+
+        let reading = PowerFlowReading(snapshot: draining)
+
+        XCTAssertEqual(reading.batteryDirection, .draining)
+        XCTAssertEqual(reading.batteryWatts, -18.3)
+        XCTAssertEqual(reading.systemLoadWatts, 38)
+        XCTAssertTrue(reading.adapterIsFeedingSystem)
+    }
+
     func testDesktopScenarioHasNoBatteryAndNoPowerReadings() {
         let snapshot = snapshot(.desktop)
 

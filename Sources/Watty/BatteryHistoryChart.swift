@@ -5,9 +5,11 @@ import WattyCore
 struct BatteryHistoryChart: View, Equatable {
     static let axisFontSize: CGFloat = 9
     static let lineWidth: CGFloat = 1.8
+    static let shadingOpacity = 0.13
     static let yAxisMarks = [0, 50, 100]
 
     let samples: [BatteryHistorySample]
+    let segments: [BatteryChartSegment]
     let range: BatteryChartRange
     let windowEnd: Date
 
@@ -16,10 +18,8 @@ struct BatteryHistoryChart: View, Equatable {
     }
 
     var body: some View {
-        let segments = BatteryChartSegment.segments(from: samples)
-
         Chart {
-            ForEach(segments.filter(\.isCharging)) { segment in
+            ForEach(segments.filter { $0.kind == .charging }) { segment in
                 if let first = segment.samples.first, let last = segment.samples.last, last.date > first.date {
                     RectangleMark(
                         xStart: .value("Charging from", first.date),
@@ -27,7 +27,19 @@ struct BatteryHistoryChart: View, Equatable {
                         yStart: .value("Minimum", 0),
                         yEnd: .value("Maximum", 100)
                     )
-                    .foregroundStyle(BatteryChartPalette.charging.opacity(0.13))
+                    .foregroundStyle(BatteryChartPalette.charging.opacity(Self.shadingOpacity))
+                }
+            }
+
+            ForEach(segments.filter { $0.kind == .draining }) { segment in
+                if let first = segment.samples.first, let last = segment.samples.last, last.date > first.date {
+                    RectangleMark(
+                        xStart: .value("Draining from", first.date),
+                        xEnd: .value("Draining until", last.date),
+                        yStart: .value("Minimum", 0),
+                        yEnd: .value("Maximum", 100)
+                    )
+                    .foregroundStyle(BatteryChartPalette.draining.opacity(Self.shadingOpacity))
                 }
             }
 
@@ -39,14 +51,14 @@ struct BatteryHistoryChart: View, Equatable {
                         series: .value("Segment", segment.id),
                         stacking: .unstacked
                     )
-                    .foregroundStyle(BatteryChartPalette.fill(isCharging: segment.isCharging))
+                    .foregroundStyle(BatteryChartPalette.fill(for: segment.kind))
 
                     LineMark(
                         x: .value("Time", sample.date),
                         y: .value("Battery", sample.level),
                         series: .value("Segment", segment.id)
                     )
-                    .foregroundStyle(BatteryChartPalette.line(isCharging: segment.isCharging))
+                    .foregroundStyle(BatteryChartPalette.line(for: segment.kind))
                     .lineStyle(StrokeStyle(lineWidth: Self.lineWidth, lineCap: .round, lineJoin: .round))
                 }
             }
@@ -57,7 +69,7 @@ struct BatteryHistoryChart: View, Equatable {
                     y: .value("Battery", latest.level)
                 )
                 .symbolSize(30)
-                .foregroundStyle(BatteryChartPalette.line(isCharging: latest.isCharging))
+                .foregroundStyle(BatteryChartPalette.line(for: segments.last?.kind ?? .standard))
             }
         }
         .chartXScale(domain: windowStart...windowEnd)
@@ -116,14 +128,19 @@ struct BatteryHistoryChart: View, Equatable {
 
 enum BatteryChartPalette {
     static let charging = Color.green
+    static let draining = Color.orange
     static let discharging = Color.teal
 
-    static func line(isCharging: Bool) -> Color {
-        isCharging ? charging : discharging
+    static func line(for kind: BatteryChartSegment.Kind) -> Color {
+        switch kind {
+        case .charging: return charging
+        case .draining: return draining
+        case .standard: return discharging
+        }
     }
 
-    static func fill(isCharging: Bool) -> LinearGradient {
-        let color = line(isCharging: isCharging)
+    static func fill(for kind: BatteryChartSegment.Kind) -> LinearGradient {
+        let color = line(for: kind)
         return LinearGradient(
             colors: [color.opacity(0.26), color.opacity(0.03)],
             startPoint: .top,

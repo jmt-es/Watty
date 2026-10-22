@@ -44,6 +44,20 @@ enum Fixtures {
         }
     }
 
+    static func drainingSnapshot(level: Int = 18, ratedWatts: Int? = 20, _ configure: (inout BatterySnapshot) -> Void = { _ in }) -> BatterySnapshot {
+        snapshot {
+            $0.level = level
+            $0.timeToFullMinutes = 579
+            $0.adapterRatedWatts = ratedWatts
+            $0.batteryPowerWatts = -18.34
+            $0.amperageAmps = -1.61
+            $0.systemPowerWatts = 19.7
+            $0.systemLoadWatts = 38.04
+            $0.netFlow = NetFlowEstimate(flow: .draining, averageBatteryWatts: -18.34)
+            configure(&$0)
+        }
+    }
+
     static func noBatterySnapshot() -> BatterySnapshot {
         snapshot {
             $0.hasBattery = false
@@ -119,6 +133,8 @@ final class CapturingConsole: ConsoleOutput {
 
 final class StubTelemetry: TelemetrySource {
     var snapshotValue: BatterySnapshot
+    var scriptedSnapshots: [BatterySnapshot] = []
+    var snapshotDateStep: TimeInterval = 0
     var statsValue: SystemStats
     var energySamples: [EnergySample]
     private(set) var snapshotCalls = 0
@@ -144,7 +160,9 @@ final class StubTelemetry: TelemetrySource {
 
     func snapshot() async -> BatterySnapshot {
         snapshotCalls += 1
-        return snapshotValue
+        var value = scriptedSnapshots.isEmpty ? snapshotValue : scriptedSnapshots[min(snapshotCalls, scriptedSnapshots.count) - 1]
+        value.lastUpdated = value.lastUpdated.addingTimeInterval(Double(snapshotCalls - 1) * snapshotDateStep)
+        return value
     }
 
     func systemStats() async -> SystemStats {

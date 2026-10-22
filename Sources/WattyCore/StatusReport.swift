@@ -16,7 +16,21 @@ public enum ReportChargeState: String, Encodable, Equatable, Sendable {
         case .charged: self = .charged
         case .pluggedInNotCharging: self = .pluggedInNotCharging
         case .onBattery: self = .onBattery
-        case .unknown: return nil
+        case .pluggedInDraining, .unknown: return nil
+        }
+    }
+}
+
+public enum ReportNetFlow: String, Encodable, Equatable, Sendable {
+    case charging
+    case draining
+    case holding
+
+    init(_ flow: NetFlow) {
+        switch flow {
+        case .charging: self = .charging
+        case .draining: self = .draining
+        case .holding: self = .holding
         }
     }
 }
@@ -130,6 +144,8 @@ public struct StatusReport: Encodable, Equatable, Sendable {
     public struct BatteryStatus: Encodable, Equatable, Sendable {
         public internal(set) var levelPercent: Int?
         public internal(set) var state: ReportChargeState?
+        public internal(set) var netFlow: ReportNetFlow?
+        public internal(set) var averagePowerWatts: Double?
         public internal(set) var timeToFullMinutes: Int?
         public internal(set) var timeToEmptyMinutes: Int?
         public internal(set) var powerWatts: Double?
@@ -142,10 +158,12 @@ public struct StatusReport: Encodable, Equatable, Sendable {
 
         init(_ snapshot: BatterySnapshot) {
             guard snapshot.hasBattery, !snapshot.isEmpty else { return }
-            let state = ReportChargeState(snapshot.chargeState)
+            let state = ReportChargeState(snapshot.reportedChargeState)
             levelPercent = snapshot.level
             self.state = state
-            timeToFullMinutes = state == .charging ? snapshot.timeToFullMinutes : nil
+            netFlow = snapshot.netFlow.flow.map(ReportNetFlow.init)
+            averagePowerWatts = ReportRounding.roundedOrNil(snapshot.netFlow.averageBatteryWatts, decimals: ReportPrecision.watts)
+            timeToFullMinutes = state == .charging && !snapshot.isDrainingOnAdapter ? snapshot.timeToFullMinutes : nil
             timeToEmptyMinutes = state == .onBattery ? snapshot.timeToEmptyMinutes : nil
             powerWatts = ReportRounding.roundedOrNil(snapshot.batteryPowerWatts, decimals: ReportPrecision.watts)
             voltageVolts = ReportRounding.roundedOrNil(snapshot.voltageVolts, decimals: ReportPrecision.volts)
@@ -159,6 +177,7 @@ public struct StatusReport: Encodable, Equatable, Sendable {
         private enum CodingKeys: String, CodingKey {
             case levelPercent = "level_percent"
             case state
+            case netFlow = "net_flow"
             case timeToFullMinutes = "time_to_full_minutes"
             case timeToEmptyMinutes = "time_to_empty_minutes"
             case powerWatts = "power_watts"
@@ -174,6 +193,7 @@ public struct StatusReport: Encodable, Equatable, Sendable {
             var container = encoder.container(keyedBy: CodingKeys.self)
             try container.encodeNullable(levelPercent, forKey: .levelPercent)
             try container.encodeNullable(state, forKey: .state)
+            try container.encodeNullable(netFlow, forKey: .netFlow)
             try container.encodeNullable(timeToFullMinutes, forKey: .timeToFullMinutes)
             try container.encodeNullable(timeToEmptyMinutes, forKey: .timeToEmptyMinutes)
             try container.encodeNullable(powerWatts, forKey: .powerWatts)
@@ -208,7 +228,7 @@ public struct StatusReport: Encodable, Equatable, Sendable {
             if let load = snapshot.systemLoadWatts { return load }
             guard let battery = snapshot.batteryPowerWatts else { return nil }
             if snapshot.powerSource == .adapter, let input = snapshot.systemPowerWatts {
-                return max(0, input - max(battery, 0))
+                return max(0, input - battery)
             }
             return battery < 0 ? -battery : nil
         }

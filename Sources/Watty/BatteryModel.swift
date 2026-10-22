@@ -41,6 +41,7 @@ final class BatteryModel: ObservableObject {
     @Published private(set) var snapshot: BatterySnapshot = .empty
     @Published private(set) var energySample: EnergySample = .empty
     @Published private(set) var historySamples: [BatteryHistorySample] = []
+    @Published private(set) var drainPeriods: [DateInterval] = []
     @Published private(set) var historyWarning: String?
     @Published private(set) var stats: SystemStats?
     @Published private(set) var statsHistory: [SystemStats] = []
@@ -59,6 +60,7 @@ final class BatteryModel: ObservableObject {
     private let historyStore: BatteryHistoryStore
     private let alertCoordinator: BatteryAlertCoordinator?
     private let logger = AppLog.logger("model")
+    private var netFlowEstimator = NetFlowEstimator()
     private var monitor: PowerSourceMonitor?
     private var sleepObserver: NSObjectProtocol?
     private var visibleSurfaces = 0
@@ -77,6 +79,7 @@ final class BatteryModel: ObservableObject {
         historyStore: BatteryHistoryStore = BatteryHistoryStore(),
         alertCoordinator: BatteryAlertCoordinator? = nil,
         seededStatsHistory: [SystemStats] = [],
+        seededNetFlowReadings: [NetFlowReading] = [],
         observesPowerEvents: Bool = true
     ) {
         self.service = service
@@ -85,6 +88,12 @@ final class BatteryModel: ObservableObject {
 
         historyStore.load()
         historySamples = historyStore.history.samples
+        drainPeriods = PluggedInDrainPeriods.detect(in: historySamples)
+        if seededNetFlowReadings.isEmpty {
+            netFlowEstimator.seed(with: historySamples)
+        } else {
+            netFlowEstimator.seed(withReadings: seededNetFlowReadings)
+        }
         statsHistory = seededStatsHistory
 
         if observesPowerEvents {
@@ -247,7 +256,8 @@ final class BatteryModel: ObservableObject {
 
     private func receive(_ received: BatterySnapshot, trigger: RefreshTrigger, depth: SnapshotDepth) {
         let previous = self.snapshot
-        let snapshot = depth == .essentials ? received.fillingMissingDetails(from: previous) : received
+        var snapshot = depth == .essentials ? received.fillingMissingDetails(from: previous) : received
+        snapshot.netFlow = netFlowEstimator.record(snapshot)
         self.snapshot = snapshot
         now = Date()
         recordHistory(of: snapshot)
@@ -259,6 +269,9 @@ final class BatteryModel: ObservableObject {
 
         if previous.chargeState != snapshot.chargeState {
             logger.info("charge state \(previous.chargeState.title, privacy: .public) -> \(snapshot.chargeState.title, privacy: .public) (\(trigger.rawValue, privacy: .public))")
+        }
+        if previous.netFlow.flow != snapshot.netFlow.flow {
+            logger.info("net flow \(previous.netFlow.flow?.rawValue ?? "unknown", privacy: .public) -> \(snapshot.netFlow.flow?.rawValue ?? "unknown", privacy: .public) average=\(snapshot.netFlow.averageBatteryWatts ?? .nan, format: .fixed(precision: 1)) W trend=\(snapshot.netFlow.levelTrendPointsPerMinute ?? .nan, format: .fixed(precision: 2)) pt/min")
         }
     }
 
@@ -380,6 +393,7 @@ final class BatteryModel: ObservableObject {
         )
         if recorded {
             historySamples = historyStore.history.samples
+            drainPeriods = PluggedInDrainPeriods.detect(in: historySamples)
         }
         historyStore.saveIfDue()
         updateHistoryWarning()

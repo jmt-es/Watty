@@ -13,6 +13,9 @@ enum DemoSnapshot {
     static let chargingMinutesToFull = 48
     static let onBatteryLevel = 58
     static let onBatteryMinutesLeft = 252
+    static let drainingLevel = 18
+    static let drainingMinutesToFull = 579
+    static let drainingAdapterRatedWatts = 20
 
     private static let allPowerModes = PowerModeSupport(
         unifiedKeyAvailable: true,
@@ -31,6 +34,7 @@ enum DemoSnapshot {
         switch scenario {
         case .charging: configureCharging(&snapshot)
         case .battery: configureOnBattery(&snapshot)
+        case .draining: configureDraining(&snapshot)
         case .desktop: configureDesktop(&snapshot)
         }
         return snapshot
@@ -69,6 +73,22 @@ enum DemoSnapshot {
         snapshot.systemPowerWatts = 0
         snapshot.systemLoadWatts = 9.1
         snapshot.temperatureCelsius = 29.6
+    }
+
+    private static func configureDraining(_ snapshot: inout BatterySnapshot) {
+        configureBatteryHealth(&snapshot)
+        snapshot.level = drainingLevel
+        snapshot.isCharging = true
+        snapshot.powerSource = .adapter
+        snapshot.timeToFullMinutes = drainingMinutesToFull
+        snapshot.voltageVolts = 11.42
+        snapshot.amperageAmps = -1.6
+        snapshot.batteryPowerWatts = -18.3
+        snapshot.systemPowerWatts = 19.7
+        snapshot.systemLoadWatts = 38.0
+        snapshot.adapterRatedWatts = drainingAdapterRatedWatts
+        snapshot.adapterDescription = adapterDescription
+        snapshot.temperatureCelsius = 38.2
     }
 
     private static func configureDesktop(_ snapshot: inout BatterySnapshot) {

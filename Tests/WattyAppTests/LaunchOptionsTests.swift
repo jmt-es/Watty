@@ -155,7 +155,7 @@ final class LaunchOptionsTests: XCTestCase {
             "--demo only works together with --capture-panel or --capture-settings",
             "--demo-scenario needs --demo",
             "--demo provides its own history, so it cannot be combined with --history-file",
-            "--demo-scenario must be one of charging, battery, desktop, not tablet",
+            "--demo-scenario must be one of charging, battery, draining, desktop, not tablet",
             "--demo does not take a value"
         ])
     }

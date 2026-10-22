@@ -53,6 +53,66 @@ final class StatusRendererTests: XCTestCase {
         XCTAssertEqual(notCharging[0], "Battery        72% · Plugged in, not charging")
     }
 
+    func testPluggedInAndDrainingNamesTheAdapterThatCannotKeepUp() {
+        let lines = plainLines(Fixtures.report(Fixtures.drainingSnapshot()))
+
+        XCTAssertEqual(lines[0], "Battery        18% · Plugged in, draining · the 20 W adapter can't keep up")
+        XCTAssertEqual(lines[1], "Power source   Power adapter · 20 W rated")
+    }
+
+    func testPluggedInAndDrainingWithoutARatingUsesAGenericSentence() {
+        let lines = plainLines(Fixtures.report(Fixtures.drainingSnapshot(ratedWatts: nil)))
+
+        XCTAssertEqual(lines[0], "Battery        18% · Plugged in, draining · the adapter can't keep up")
+    }
+
+    func testDrainingShowsTheAveragedPowerAndNotTheInstantaneousSpike() {
+        let snapshot = Fixtures.drainingSnapshot { $0.batteryPowerWatts = 4.8 }
+
+        let lines = plainLines(Fixtures.report(snapshot))
+
+        XCTAssertEqual(lines[4], "Battery power  -18.3 W · draining")
+    }
+
+    func testDrainingWithoutAnAverageShowsTheReadingWithoutALabel() {
+        let snapshot = Fixtures.drainingSnapshot {
+            $0.batteryPowerWatts = 4.8
+            $0.netFlow = NetFlowEstimate(flow: .draining)
+        }
+
+        let lines = plainLines(Fixtures.report(snapshot))
+
+        XCTAssertEqual(lines[4], "Battery power  +4.8 W")
+    }
+
+    func testDrainingPaintsTheStateAndALowLevelInWarningColors() {
+        let low = StatusRenderer.lines(for: Fixtures.report(Fixtures.drainingSnapshot(level: 8)), style: TextStyle(isEnabled: true))
+        let medium = StatusRenderer.lines(for: Fixtures.report(Fixtures.drainingSnapshot(level: 15)), style: TextStyle(isEnabled: true))
+        let healthy = StatusRenderer.lines(for: Fixtures.report(Fixtures.drainingSnapshot(level: 60)), style: TextStyle(isEnabled: true))
+
+        XCTAssertTrue(low[0].contains("\u{1B}[31m8%"))
+        XCTAssertTrue(medium[0].contains("\u{1B}[33m15%"))
+        XCTAssertFalse(healthy[0].contains("\u{1B}[32m"))
+        XCTAssertTrue(healthy[0].contains("\u{1B}[33mPlugged in, draining\u{1B}[0m"))
+        XCTAssertTrue(healthy[4].contains("\u{1B}[33mdraining\u{1B}[0m"))
+    }
+
+    func testTheOtherNetFlowsLeaveTheSummaryAsMacOSReportsIt() {
+        for flow in [NetFlow.charging, .holding] {
+            let snapshot = Fixtures.snapshot { $0.netFlow = NetFlowEstimate(flow: flow, averageBatteryWatts: 29.3) }
+
+            XCTAssertEqual(plainLines(Fixtures.report(snapshot))[0], "Battery        72% · Charging · 1:38 to full", "\(flow)")
+        }
+    }
+
+    func testOnBatteryTheDrainKeepsTheOnBatterySummary() {
+        let snapshot = Fixtures.onBatterySnapshot {
+            $0.netFlow = NetFlowEstimate(flow: .draining, averageBatteryWatts: -11.2)
+        }
+
+        XCTAssertEqual(plainLines(Fixtures.report(snapshot))[0], "Battery        64% · On battery · 3:35 left")
+    }
+
     func testUnknownTimeEstimateIsOmittedRatherThanZero() {
         let lines = plainLines(Fixtures.report(Fixtures.snapshot { $0.timeToFullMinutes = nil }))
 

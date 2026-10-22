@@ -40,6 +40,7 @@
 "Battery %@, charging" = "Battery %@, charging";
 "Battery %@, fully charged" = "Battery %@, fully charged";
 "Battery %@, on battery" = "Battery %@, on battery";
+"Battery %@, plugged in, draining" = "Battery %@, plugged in, draining";
 "Battery %@, plugged in, not charging" = "Battery %@, plugged in, not charging";
 "Battery draw in watts on battery, adapter input while plugged in." = "Battery draw in watts on battery, adapter input while plugged in.";
 "Battery fully charged" = "Battery fully charged";
@@ -86,6 +87,10 @@
 "Desktop Mac · no battery" = "Desktop Mac · no battery";
 "discharging" = "discharging";
 "Discharging at %@" = "Discharging at %@";
+"draining" = "draining";
+"Draining at %@" = "Draining at %@";
+"Draining from" = "Draining from";
+"Draining until" = "Draining until";
 "Energy" = "Energy";
 "Energy Mode" = "Energy Mode";
 "Expand health details" = "Expand health details";
@@ -144,6 +149,7 @@
 "Open Login Items…" = "Open Login Items…";
 "Open Notification Settings…" = "Open Notification Settings…";
 "Percentage" = "Percentage";
+"Plugged in, draining" = "Plugged in, draining";
 "Plugged in, not charging" = "Plugged in, not charging";
 "pmset battery read failed" = "pmset battery read failed";
 "pmset settings read failed" = "pmset settings read failed";
@@ -175,6 +181,8 @@
 "System" = "System";
 "System kept %@" = "System kept %@";
 "system_profiler detail read failed" = "system_profiler detail read failed";
+"The %lld W adapter can't keep up" = "The %lld W adapter can't keep up";
+"The adapter can't keep up" = "The adapter can't keep up";
 "The app's path changes with every upgrade, so start it at login with Homebrew instead:" = "The app's path changes with every upgrade, so start it at login with Homebrew instead:";
 "The battery is at %@. Plug in your charger." = "The battery is at %@. Plug in your charger.";
 "The battery is full. You can unplug your charger." = "The battery is full. You can unplug your charger.";

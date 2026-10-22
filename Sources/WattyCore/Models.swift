@@ -95,6 +95,7 @@ public enum ChargeState: Equatable {
     case charging
     case charged
     case pluggedInNotCharging
+    case pluggedInDraining
     case onBattery
     case unknown
 
@@ -103,6 +104,7 @@ public enum ChargeState: Equatable {
         case .charging: return "Charging"
         case .charged: return "Charged"
         case .pluggedInNotCharging: return "Plugged in, not charging"
+        case .pluggedInDraining: return "Plugged in, draining"
         case .onBattery: return "On battery"
         case .unknown: return "Reading battery"
         }
@@ -142,7 +144,15 @@ public struct BatterySnapshot: Equatable {
         lastUpdated == Date.distantPast
     }
 
+    public var isDrainingOnAdapter: Bool {
+        powerSource == .adapter && netFlow.flow == .draining
+    }
+
     public var chargeState: ChargeState {
+        isDrainingOnAdapter ? .pluggedInDraining : reportedChargeState
+    }
+
+    public var reportedChargeState: ChargeState {
         if isEmpty { return .unknown }
         if isCharging { return .charging }
         if powerSource == .adapter {

@@ -28,6 +28,30 @@ final class DemoSessionTests: XCTestCase {
         XCTAssertTrue(model.availablePowerModes.contains(.highPower))
     }
 
+    func testTheDrainingScenarioReadsAsPluggedInAndDrainingAtOnce() async throws {
+        let model = DemoSession.makeModel(for: .draining)
+
+        try await waitUntil { !model.snapshot.isEmpty }
+
+        XCTAssertEqual(model.snapshot.chargeState, .pluggedInDraining)
+        XCTAssertEqual(model.snapshot.reportedChargeState, .charging)
+        XCTAssertEqual(model.snapshot.timeRemaining, .adapterCannotKeepUp(ratedWatts: 20))
+        XCTAssertEqual(model.snapshot.batteryPowerWatts, -18.3)
+        XCTAssertEqual(model.drainPeriods.count, 1)
+    }
+
+    func testTheChargingAndBatteryScenariosKeepTheirStates() async throws {
+        let charging = DemoSession.makeModel(for: .charging)
+        let onBattery = DemoSession.makeModel(for: .battery)
+
+        try await waitUntil { !charging.snapshot.isEmpty && !onBattery.snapshot.isEmpty }
+
+        XCTAssertEqual(charging.snapshot.chargeState, .charging)
+        XCTAssertEqual(charging.snapshot.netFlow.flow, .charging)
+        XCTAssertEqual(onBattery.snapshot.chargeState, .onBattery)
+        XCTAssertEqual(onBattery.snapshot.netFlow.flow, .draining)
+    }
+
     func testTheModelStartsWithAFullDayOfBatteryHistoryAndTenMinutesOfStats() throws {
         let model = DemoSession.makeModel(for: .charging)
 

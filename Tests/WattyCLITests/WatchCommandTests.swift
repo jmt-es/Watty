@@ -10,13 +10,61 @@ final class WatchCommandTests: XCTestCase {
 
         XCTAssertEqual(code, 0)
         XCTAssertEqual(rig.console.outputLines, Array(
-            repeating: "2026-10-21T18:04:04+02:00 level=72 state=charging battery_w=+29.3 system_w=30.5",
+            repeating: "2026-10-21T18:04:04+02:00 level=72 state=charging battery_w=+29.3 system_w=30.5 net_flow=—",
             count: 3
         ))
         XCTAssertEqual(rig.sleeper.durations, [3, 3, 3])
         XCTAssertEqual(rig.telemetry.snapshotCalls, 3)
         XCTAssertEqual(rig.telemetry.statsCalls, 0)
         XCTAssertFalse(rig.console.output.contains("\u{1B}"))
+    }
+
+    func testWatchJudgesTheNetFlowAcrossSamplesInsteadOfFromEachOne() async {
+        let steadyDrain = Fixtures.snapshot {
+            $0.level = 18
+            $0.batteryPowerWatts = -18.3
+            $0.adapterRatedWatts = 20
+        }
+        let telemetry = StubTelemetry(snapshot: steadyDrain)
+        telemetry.snapshotDateStep = 10
+        let rig = TestRig(telemetry: telemetry, allowedSleeps: 4)
+
+        _ = await rig.run("watch", "--interval", "10")
+
+        let flows = rig.console.outputLines.map { $0.components(separatedBy: " ").last ?? "" }
+        XCTAssertEqual(flows, ["net_flow=—", "net_flow=—", "net_flow=—", "net_flow=draining", "net_flow=draining"])
+    }
+
+    func testWatchKeepsCallingASteadyDrainADrainThroughAPositiveSpike() async {
+        let watts: [Double] = [-18, -20, -19, -21, 4.8, -19, -20]
+        let telemetry = StubTelemetry()
+        telemetry.scriptedSnapshots = watts.map { value in
+            Fixtures.snapshot {
+                $0.level = 18
+                $0.batteryPowerWatts = value
+            }
+        }
+        telemetry.snapshotDateStep = 10
+        let rig = TestRig(telemetry: telemetry, allowedSleeps: watts.count - 1)
+
+        _ = await rig.run("watch", "--interval", "10")
+
+        let lines = rig.console.outputLines
+        XCTAssertTrue(lines[4].contains("battery_w=+4.8"))
+        XCTAssertTrue(lines.dropFirst(3).allSatisfy { $0.hasSuffix("net_flow=draining") }, "\(lines)")
+    }
+
+    func testWatchOnATerminalNamesTheDrainOnceItIsEstablished() async {
+        let telemetry = StubTelemetry(snapshot: Fixtures.drainingSnapshot { $0.netFlow = .unknown })
+        telemetry.snapshotDateStep = 10
+        let terminal = TerminalEnvironment(isInteractive: true, term: "xterm-256color")
+        let rig = TestRig(telemetry: telemetry, terminal: terminal, allowedSleeps: 5)
+
+        _ = await rig.run("watch", "--interval", "10")
+
+        let output = stripANSI(rig.console.output)
+        XCTAssertTrue(output.contains("Battery        18% · Charging · 9:39 to full"))
+        XCTAssertTrue(output.contains("Battery        18% · Plugged in, draining · the 20 W adapter can't keep up"))
     }
 
     func testWatchSubtractsTheTimeSpentSamplingFromTheWait() async {
@@ -53,7 +101,7 @@ final class WatchCommandTests: XCTestCase {
 
         _ = await rig.run("watch")
 
-        XCTAssertEqual(rig.console.outputLines, ["2026-10-21T18:04:04+02:00 level=— state=no_battery battery_w=— system_w=—"])
+        XCTAssertEqual(rig.console.outputLines, ["2026-10-21T18:04:04+02:00 level=— state=no_battery battery_w=— system_w=— net_flow=—"])
     }
 
     func testWatchRedrawsInPlaceOnATerminalAndRestoresItWhenDone() async {

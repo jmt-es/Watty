@@ -192,6 +192,23 @@ final class LocalizationFilesTests: XCTestCase {
         XCTAssertEqual(String(localized: "\(seconds) s ago", bundle: spanish, locale: es), "hace 30\u{00A0}s")
     }
 
+    func testThePluggedInDrainingTextsAreTranslatedForSpainWithTheUnitKeptTogether() throws {
+        let english = try bundle("en")
+        let spanish = try bundle("es")
+        let en = Locale(identifier: "en_US")
+        let es = Locale(identifier: "es_ES")
+        let percent = "18 %"
+        let rated = 20
+
+        XCTAssertEqual(String(localized: "Plugged in, draining", bundle: english, locale: en), "Plugged in, draining")
+        XCTAssertEqual(String(localized: "Plugged in, draining", bundle: spanish, locale: es), "Conectado, descargando")
+        XCTAssertEqual(String(localized: "The \(rated) W adapter can't keep up", bundle: english, locale: en), "The 20 W adapter can't keep up")
+        XCTAssertEqual(String(localized: "The \(rated) W adapter can't keep up", bundle: spanish, locale: es), "El adaptador de 20\u{00A0}W no da abasto")
+        XCTAssertEqual(String(localized: "The adapter can't keep up", bundle: spanish, locale: es), "El adaptador no da abasto")
+        XCTAssertEqual(String(localized: "Battery \(percent), plugged in, draining", bundle: spanish, locale: es), "Batería 18 %, conectada, descargando")
+        XCTAssertEqual(String(localized: "draining", bundle: spanish, locale: es), "descargando")
+    }
+
     func testSpanishInfoPlistLocalizesTheCopyright() throws {
         let url = folder("es").appendingPathComponent("InfoPlist.strings")
         let values = try XCTUnwrap(NSDictionary(contentsOf: url) as? [String: String])

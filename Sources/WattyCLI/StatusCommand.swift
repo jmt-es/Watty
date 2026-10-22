@@ -3,7 +3,8 @@ import WattyCore
 
 enum StatusCommand {
     static func run(_ options: StatusOptions, context: CommandContext) async -> Int32 {
-        let snapshot = await context.telemetry.snapshot()
+        var snapshot = await context.telemetry.snapshot()
+        snapshot.netFlow = NetFlowEstimator.instantaneousEstimate(for: snapshot)
         _ = await context.telemetry.systemStats()
         _ = await context.pause(CLIDefaults.cpuSamplingWindow)
         let stats = await context.telemetry.systemStats()

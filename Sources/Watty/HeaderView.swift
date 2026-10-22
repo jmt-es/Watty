@@ -20,7 +20,7 @@ struct HeaderView: View {
                     .font(.system(size: 14, weight: .semibold))
                 Text(subtitle)
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(model.hasBattery ? style.subtitleColor : .secondary)
                     .lineLimit(1)
             }
 
@@ -38,25 +38,16 @@ struct HeaderView: View {
         model.hasBattery ? model.snapshot.chargeState.localizedTitle : String(localized: "Desktop Mac · no battery")
     }
 
+    private var style: ChargeStatusStyle {
+        ChargeStatusStyle(chargeState: model.snapshot.chargeState, level: model.snapshot.level)
+    }
+
     private var statusSymbol: String {
-        guard model.hasBattery else { return "desktopcomputer" }
-        switch model.snapshot.chargeState {
-        case .charging: return "bolt.fill"
-        case .charged: return "checkmark.circle.fill"
-        case .pluggedInNotCharging: return "powerplug.fill"
-        case .onBattery: return "battery.75"
-        case .unknown: return "waveform.path.ecg"
-        }
+        model.hasBattery ? style.symbol : "desktopcomputer"
     }
 
     private var statusColor: Color {
-        guard model.hasBattery else { return .teal }
-        switch model.snapshot.chargeState {
-        case .charging, .charged: return .green
-        case .pluggedInNotCharging: return .yellow
-        case .onBattery: return model.snapshot.level <= BatteryThreshold.lowLevel ? .orange : .teal
-        case .unknown: return .secondary
-        }
+        model.hasBattery ? style.tint : .teal
     }
 }
 

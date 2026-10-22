@@ -52,6 +52,13 @@ enum DemoStats {
                 socMaxCelsius: 36.4,
                 socAverageCelsius: 34.5
             )
+        case .draining:
+            return Profile(
+                cpu: CPUUsage(userPercent: 58.4, systemPercent: 17.6),
+                memory: memoryUsage(appGiB: 8.9, wiredGiB: 2.4, compressedGiB: 2.1, totalGiB: 16),
+                socMaxCelsius: 69.8,
+                socAverageCelsius: 64.2
+            )
         case .desktop:
             return Profile(
                 cpu: CPUUsage(userPercent: 6.2, systemPercent: 2.9),

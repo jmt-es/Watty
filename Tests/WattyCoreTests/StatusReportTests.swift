@@ -152,7 +152,7 @@ final class StatusReportTests: XCTestCase {
         let battery = try XCTUnwrap(object["battery"] as? [String: Any])
 
         XCTAssertEqual(object["has_battery"] as? Bool, false)
-        XCTAssertEqual(battery.count, 11)
+        XCTAssertEqual(battery.count, 12)
         for (key, value) in battery {
             XCTAssertTrue(value is NSNull, "\(key) should be null without a battery")
         }
@@ -195,7 +195,7 @@ final class StatusReportTests: XCTestCase {
         let power = try XCTUnwrap(object["power"] as? [String: Any])
         let system = try XCTUnwrap(object["system"] as? [String: Any])
 
-        for key in ["voltage_volts", "amperage_amps", "power_watts", "cycle_count", "condition",
+        for key in ["voltage_volts", "amperage_amps", "power_watts", "cycle_count", "condition", "net_flow",
                     "maximum_capacity_percent", "temperature_celsius", "time_to_full_minutes", "time_to_empty_minutes"] {
             XCTAssertTrue(battery[key] is NSNull, "battery.\(key) should be an explicit null")
         }
@@ -216,7 +216,7 @@ final class StatusReportTests: XCTestCase {
             "battery", "power", "system", "warnings"
         ])
         XCTAssertEqual(Set(try XCTUnwrap(object["battery"] as? [String: Any]).keys), [
-            "level_percent", "state", "time_to_full_minutes", "time_to_empty_minutes", "power_watts",
+            "level_percent", "state", "net_flow", "time_to_full_minutes", "time_to_empty_minutes", "power_watts",
             "voltage_volts", "amperage_amps", "temperature_celsius", "cycle_count",
             "maximum_capacity_percent", "condition"
         ])
@@ -228,6 +228,90 @@ final class StatusReportTests: XCTestCase {
             "soc_temperature_celsius", "cpu_percent", "cpu_user_percent", "cpu_system_percent",
             "memory_percent", "memory_used_bytes", "memory_total_bytes", "swap_used_bytes"
         ])
+    }
+
+    func testNetFlowIsReportedNextToTheStateMacOSGave() throws {
+        let draining = report(snapshot {
+            $0.netFlow = NetFlowEstimate(flow: .draining, averageBatteryWatts: -18.346)
+            $0.batteryPowerWatts = 4.8
+            $0.timeToFullMinutes = 579
+        })
+        let object = try jsonObject(draining)
+        let battery = try XCTUnwrap(object["battery"] as? [String: Any])
+
+        XCTAssertEqual(battery["state"] as? String, "charging")
+        XCTAssertEqual(battery["net_flow"] as? String, "draining")
+        XCTAssertEqual(battery["power_watts"] as? Double, 4.8)
+        XCTAssertEqual(draining.battery.averagePowerWatts, -18.35)
+    }
+
+    func testTheAveragePowerIsNotPartOfTheJSON() throws {
+        let object = try jsonObject(report(snapshot {
+            $0.netFlow = NetFlowEstimate(flow: .draining, averageBatteryWatts: -18.3)
+        }))
+        let battery = try XCTUnwrap(object["battery"] as? [String: Any])
+
+        XCTAssertFalse(battery.keys.contains("average_power_watts"))
+        XCTAssertFalse(battery.keys.contains("averagePowerWatts"))
+    }
+
+    func testTheTimeToFullIsDroppedWhileTheChargerCannotKeepUp() {
+        let draining = report(snapshot {
+            $0.netFlow = NetFlowEstimate(flow: .draining, averageBatteryWatts: -18)
+            $0.timeToFullMinutes = 579
+        })
+        let charging = report(snapshot {
+            $0.netFlow = NetFlowEstimate(flow: .charging, averageBatteryWatts: 29)
+            $0.timeToFullMinutes = 98
+        })
+
+        XCTAssertEqual(draining.battery.state, .charging)
+        XCTAssertNil(draining.battery.timeToFullMinutes)
+        XCTAssertEqual(charging.battery.timeToFullMinutes, 98)
+    }
+
+    func testEveryNetFlowHasItsOwnJSONWord() throws {
+        for (flow, word) in [(NetFlow.charging, "charging"), (.draining, "draining"), (.holding, "holding")] {
+            let object = try jsonObject(report(snapshot { $0.netFlow = NetFlowEstimate(flow: flow) }))
+
+            XCTAssertEqual((object["battery"] as? [String: Any])?["net_flow"] as? String, word)
+        }
+    }
+
+    func testAnUnknownNetFlowIsAnExplicitNull() throws {
+        let object = try jsonObject(report())
+
+        XCTAssertTrue((object["battery"] as? [String: Any])?["net_flow"] is NSNull)
+    }
+
+    func testOnBatteryNetFlowIsDraining() throws {
+        let report = report(snapshot {
+            $0.isCharging = false
+            $0.powerSource = .battery
+            $0.netFlow = NetFlowEstimate(flow: .draining, averageBatteryWatts: -11)
+        })
+
+        XCTAssertEqual(report.battery.state, .onBattery)
+        XCTAssertEqual(report.battery.netFlow, .draining)
+    }
+
+    func testTheReportedStateIgnoresTheNetFlowCorrection() {
+        let report = report(snapshot {
+            $0.isCharging = false
+            $0.netFlow = NetFlowEstimate(flow: .draining, averageBatteryWatts: -18)
+        })
+
+        XCTAssertEqual(report.battery.state, .pluggedInNotCharging)
+    }
+
+    func testSystemLoadIsDerivedWithTheBatterySupplementingTheAdapter() {
+        let report = report(snapshot {
+            $0.systemLoadWatts = nil
+            $0.systemPowerWatts = 19.7
+            $0.batteryPowerWatts = -18.3
+        })
+
+        XCTAssertEqual(report.power.systemLoadWatts, 38)
     }
 
     func testEnvelopeValues() throws {

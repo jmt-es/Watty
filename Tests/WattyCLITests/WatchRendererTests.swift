@@ -9,7 +9,7 @@ final class WatchRendererTests: XCTestCase {
     func testLineCarriesTimeLevelStateAndPowerFlow() {
         let line = WatchRenderer.line(report: Fixtures.report(), date: Fixtures.date, timeZone: madrid)
 
-        XCTAssertEqual(line, "2026-10-21T18:04:04+02:00 level=72 state=charging battery_w=+29.3 system_w=30.5")
+        XCTAssertEqual(line, "2026-10-21T18:04:04+02:00 level=72 state=charging battery_w=+29.3 system_w=30.5 net_flow=—")
     }
 
     func testLineUsesZForUTC() {
@@ -39,20 +39,33 @@ final class WatchRendererTests: XCTestCase {
 
         let line = WatchRenderer.line(report: report, date: Fixtures.date, timeZone: utc)
 
-        XCTAssertTrue(line.hasSuffix("battery_w=— system_w=—"), line)
+        XCTAssertTrue(line.hasSuffix("battery_w=— system_w=— net_flow=—"), line)
     }
 
     func testLineWithoutBatteryNamesTheCondition() {
         let line = WatchRenderer.line(report: Fixtures.report(Fixtures.noBatterySnapshot()), date: Fixtures.date, timeZone: utc)
 
-        XCTAssertEqual(line, "2026-10-21T16:04:04Z level=— state=no_battery battery_w=— system_w=—")
+        XCTAssertEqual(line, "2026-10-21T16:04:04Z level=— state=no_battery battery_w=— system_w=— net_flow=—")
+    }
+
+    func testLineCarriesTheNetFlowAsTheLastField() {
+        let draining = Fixtures.report(Fixtures.drainingSnapshot { $0.batteryPowerWatts = 4.8 })
+        let onBattery = Fixtures.report(Fixtures.onBatterySnapshot { $0.netFlow = NetFlowEstimate(flow: .draining) })
+        let holding = Fixtures.report(Fixtures.snapshot {
+            $0.isCharging = false
+            $0.netFlow = NetFlowEstimate(flow: .holding)
+        })
+
+        XCTAssertTrue(WatchRenderer.line(report: draining, date: Fixtures.date, timeZone: utc).hasSuffix("state=charging battery_w=+4.8 system_w=38.0 net_flow=draining"))
+        XCTAssertTrue(WatchRenderer.line(report: onBattery, date: Fixtures.date, timeZone: utc).hasSuffix("net_flow=draining"))
+        XCTAssertTrue(WatchRenderer.line(report: holding, date: Fixtures.date, timeZone: utc).hasSuffix("net_flow=holding"))
     }
 
     func testLineIsASingleCompactLine() {
         let line = WatchRenderer.line(report: Fixtures.report(), date: Fixtures.date, timeZone: madrid)
 
         XCTAssertFalse(line.contains("\n"))
-        XCTAssertLessThanOrEqual(line.count, 80)
+        XCTAssertLessThanOrEqual(line.count, 90)
     }
 
     func testFrameStartsWithATitleAndThenTheStatusRows() {

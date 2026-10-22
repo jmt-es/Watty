@@ -10,6 +10,7 @@ struct BatteryOverviewView: View {
     var body: some View {
         let windowEnd = BatteryChartData.windowEnd(for: model.now)
         let visibleSamples = BatteryChartData.visibleSamples(model.historySamples, range: range, windowEnd: windowEnd)
+        let segments = BatteryChartSegment.segments(from: visibleSamples, drainPeriods: model.drainPeriods)
 
         VStack(spacing: 8) {
             HStack(alignment: .center, spacing: 10) {
@@ -20,41 +21,24 @@ struct BatteryOverviewView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(model.snapshot.chargeState.localizedTitle)
                         .font(.caption)
-                        .foregroundStyle(statusColor)
+                        .foregroundStyle(style.textColor)
                     Text(model.snapshot.timeRemaining.localizedText)
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                         .monospacedDigit()
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
 
                 Spacer()
 
-                BatteryLevelRing(
-                    level: model.snapshot.level,
-                    tint: ringTint,
-                    isCharging: model.snapshot.chargeState == .charging
-                )
+                BatteryLevelRing(level: model.snapshot.level, tint: style.tint, symbol: style.ringSymbol)
             }
 
             VStack(spacing: 5) {
-                HStack(spacing: 6) {
-                    SectionTitle("History")
-                    if visibleSamples.contains(where: \.isCharging) {
-                        ChargingLegend()
-                    }
-                    Spacer()
-                    Picker("History range", selection: $range) {
-                        ForEach(BatteryChartRange.allCases) { option in
-                            Text(option.label).tag(option)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                    .controlSize(.mini)
-                    .fixedSize()
-                }
+                HistoryHeader(kinds: BatteryChartSegment.legendKinds(in: segments), range: $range)
 
-                BatteryHistoryChart(samples: visibleSamples, range: range, windowEnd: windowEnd)
+                BatteryHistoryChart(samples: visibleSamples, segments: segments, range: range, windowEnd: windowEnd)
                     .equatable()
                     .frame(height: Self.chartHeight)
             }
@@ -66,35 +50,82 @@ struct BatteryOverviewView: View {
         model.snapshot.isEmpty ? "--%" : ValueFormat.percent(model.snapshot.level)
     }
 
-    private var ringTint: Color {
-        switch model.snapshot.chargeState {
-        case .charging, .charged: return .green
-        case .pluggedInNotCharging: return .yellow
-        case .onBattery: return model.snapshot.level <= BatteryThreshold.lowLevel ? .orange : .teal
-        case .unknown: return .secondary
-        }
+    private var style: ChargeStatusStyle {
+        ChargeStatusStyle(chargeState: model.snapshot.chargeState, level: model.snapshot.level)
     }
+}
 
-    private var statusColor: Color {
-        switch model.snapshot.chargeState {
-        case .charging, .charged: return .green
-        case .pluggedInNotCharging: return .yellow
-        case .onBattery: return model.snapshot.level <= BatteryThreshold.lowLevel ? .orange : .primary
-        case .unknown: return .secondary
+private struct HistoryHeader: View {
+    let kinds: [BatteryChartSegment.Kind]
+    @Binding var range: BatteryChartRange
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 6) {
+                SectionTitle("History")
+                ChartLegend(kinds: kinds)
+                Spacer(minLength: 0)
+                RangePicker(range: $range)
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    SectionTitle("History")
+                    Spacer(minLength: 0)
+                    RangePicker(range: $range)
+                }
+                HStack(spacing: 8) {
+                    ChartLegend(kinds: kinds)
+                }
+            }
         }
     }
 }
 
-private struct ChargingLegend: View {
+private struct RangePicker: View {
+    @Binding var range: BatteryChartRange
+
     var body: some View {
-        HStack(spacing: 4) {
-            Circle()
-                .fill(BatteryChartPalette.charging)
-                .frame(width: 6, height: 6)
-            Text("Charging")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+        Picker("History range", selection: $range) {
+            ForEach(BatteryChartRange.allCases) { option in
+                Text(option.label).tag(option)
+            }
         }
-        .accessibilityHidden(true)
+        .pickerStyle(.segmented)
+        .labelsHidden()
+        .controlSize(.mini)
+        .fixedSize()
+    }
+}
+
+private struct ChartLegend: View {
+    let kinds: [BatteryChartSegment.Kind]
+
+    var body: some View {
+        ForEach(kinds, id: \.self) { kind in
+            if let title = kind.legendTitle {
+                HStack(spacing: 4) {
+                    Circle()
+                        .fill(BatteryChartPalette.line(for: kind))
+                        .frame(width: 6, height: 6)
+                    Text(title)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .fixedSize()
+                }
+                .accessibilityHidden(true)
+            }
+        }
+    }
+}
+
+private extension BatteryChartSegment.Kind {
+    var legendTitle: LocalizedStringKey? {
+        switch self {
+        case .charging: return "Charging"
+        case .draining: return "Plugged in, draining"
+        case .standard: return nil
+        }
     }
 }

@@ -90,6 +90,11 @@ enum HelpText {
     place until Ctrl-C. When output is piped, one line is printed per sample:
 
     <time> level=<percent> state=<state> battery_w=<watts> system_w=<watts>
+      net_flow=<flow>
+
+    net_flow is where the battery is really heading, judged over the last few
+    minutes: charging, draining or holding. A dash means there is not enough data
+    yet.
 
     Options:
       --interval SECONDS   Time between samples, \(bound(CLIDefaults.minimumInterval)) to \(bound(CLIDefaults.maximumInterval)) (default \(bound(CLIDefaults.watchInterval)))

@@ -17,12 +17,15 @@ final class BatteryLevelRingTests: XCTestCase {
     }
 
     func testRingKeepsItsFixedSizeWhateverTheLevelOrState() {
-        for (level, charging) in [(0, false), (76, true), (100, false)] {
-            let ring = BatteryLevelRing(level: level, tint: .green, isCharging: charging)
+        let states: [(level: Int, symbol: String?)] = [
+            (0, nil), (76, ChargeSymbol.charging), (18, ChargeSymbol.draining), (100, nil)
+        ]
+        for state in states {
+            let ring = BatteryLevelRing(level: state.level, tint: .green, symbol: state.symbol)
             let size = NSHostingView(rootView: ring).fittingSize
 
-            XCTAssertEqual(size.width, BatteryLevelRing.diameter, "width at \(level)%")
-            XCTAssertEqual(size.height, BatteryLevelRing.diameter, "height at \(level)%")
+            XCTAssertEqual(size.width, BatteryLevelRing.diameter, "width at \(state.level)%")
+            XCTAssertEqual(size.height, BatteryLevelRing.diameter, "height at \(state.level)%")
         }
     }
 }

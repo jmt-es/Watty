@@ -68,6 +68,7 @@ enum DemoEnergy {
         switch scenario {
         case .charging: return 1
         case .battery: return 0.55
+        case .draining: return 1.6
         case .desktop: return 0.4
         }
     }

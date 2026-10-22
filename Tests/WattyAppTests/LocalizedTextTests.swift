@@ -7,12 +7,13 @@ final class LocalizedTextTests: XCTestCase {
         XCTAssertEqual(ChargeState.charging.localizedTitle, "Charging")
         XCTAssertEqual(ChargeState.charged.localizedTitle, "Charged")
         XCTAssertEqual(ChargeState.pluggedInNotCharging.localizedTitle, "Plugged in, not charging")
+        XCTAssertEqual(ChargeState.pluggedInDraining.localizedTitle, "Plugged in, draining")
         XCTAssertEqual(ChargeState.onBattery.localizedTitle, "On battery")
         XCTAssertEqual(ChargeState.unknown.localizedTitle, "Reading battery")
     }
 
     func testEveryChargeStateHasADistinctTitle() {
-        let states: [ChargeState] = [.charging, .charged, .pluggedInNotCharging, .onBattery, .unknown]
+        let states: [ChargeState] = [.charging, .charged, .pluggedInNotCharging, .pluggedInDraining, .onBattery, .unknown]
 
         XCTAssertEqual(Set(states.map(\.localizedTitle)).count, states.count)
     }
@@ -34,13 +35,16 @@ final class LocalizedTextTests: XCTestCase {
         XCTAssertEqual(TimeRemaining.calculatingUntilEmpty.localizedText, "Calculating time left")
         XCTAssertEqual(TimeRemaining.fullyCharged.localizedText, "Fully charged")
         XCTAssertEqual(TimeRemaining.runningFromAdapter.localizedText, "Running from adapter")
+        XCTAssertEqual(TimeRemaining.adapterCannotKeepUp(ratedWatts: 20).localizedText, "The 20 W adapter can't keep up")
+        XCTAssertEqual(TimeRemaining.adapterCannotKeepUp(ratedWatts: nil).localizedText, "The adapter can't keep up")
         XCTAssertEqual(TimeRemaining.waitingForFirstReading.localizedText, "Waiting for first reading")
     }
 
     func testTimeRemainingTextsFollowTheCoreEnglishText() {
         let cases: [TimeRemaining] = [
             .untilFull(minutes: 75), .finishingCharge, .calculatingUntilFull, .fullyCharged,
-            .runningFromAdapter, .untilEmpty(minutes: 192), .calculatingUntilEmpty, .waitingForFirstReading
+            .runningFromAdapter, .adapterCannotKeepUp(ratedWatts: 20), .adapterCannotKeepUp(ratedWatts: nil),
+            .untilEmpty(minutes: 192), .calculatingUntilEmpty, .waitingForFirstReading
         ]
         for remaining in cases {
             XCTAssertEqual(remaining.localizedText, remaining.text)

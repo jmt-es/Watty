@@ -57,7 +57,7 @@ final class DemoStatsTests: XCTestCase {
                 XCTAssertTrue((20...90).contains(memory.usedPercent), "\(scenario) memory \(memory.usedPercent)")
                 XCTAssertEqual(memory.usedBytes, memory.appBytes + memory.wiredBytes + memory.compressedBytes)
                 XCTAssertEqual(memory.swapUsedBytes, 0)
-                XCTAssertTrue((25...60).contains(try XCTUnwrap(temperature.socMaxCelsius)), "\(scenario)")
+                XCTAssertTrue((25...80).contains(try XCTUnwrap(temperature.socMaxCelsius)), "\(scenario)")
                 XCTAssertLessThan(try XCTUnwrap(temperature.socAverageCelsius), try XCTUnwrap(temperature.socMaxCelsius))
                 XCTAssertEqual(temperature.sensorCount, DemoStats.sensorCount)
             }
